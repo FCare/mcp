@@ -1,6 +1,5 @@
 import asyncio
 import json
-import queue
 import threading
 import time
 import base64
@@ -8,6 +7,7 @@ from typing import Optional, Dict, Any
 
 from pipeline_framework import PipelineStep
 from messages.base_message import Message, InputMessage, OutputMessage, ErrorMessage, MessageType
+from utils.chunk_queue import ChunkQueue
 
 
 class WebSocketStep(PipelineStep):
@@ -30,6 +30,10 @@ class WebSocketStep(PipelineStep):
         
         # Mode de fonctionnement : "audio_to_text" ou "text_to_audio"
         self.mode = config.get("mode", "audio_to_text") if config else "audio_to_text"
+        
+        # ChunkQueues pour traiter les messages de manière asynchrone
+        self.outgoing_message_queue = ChunkQueue(handler=self._handle_outgoing_message)
+        self.incoming_message_queue = ChunkQueue(handler=self._handle_incoming_message)
     
     def init(self) -> bool:
         """Démarre le serveur WebSocket dans un thread séparé"""
@@ -65,28 +69,51 @@ class WebSocketStep(PipelineStep):
     def process_message(self, message) -> Optional[OutputMessage]:
         try:
             if message.type == MessageType.OUTPUT:
-                if self.mode == "audio_to_text":
-                    # Mode ASR: diffuser du texte transcrit
-                    text_data = message.data
-                    asyncio.run_coroutine_threadsafe(
-                        self.broadcast_text(str(text_data)),
-                        self.event_loop
-                    )
-                elif self.mode == "text_to_audio":
-                    # Mode TTS: diffuser des chunks audio
-                    audio_data = message.data
-                    asyncio.run_coroutine_threadsafe(
-                        self.broadcast_audio(audio_data),
-                        self.event_loop
-                    )
-                
+                # Envoie le message vers la ChunkQueue pour traitement asynchrone
+                self.outgoing_message_queue.enqueue(message)
                 return None
                 
         except Exception as e:
             return ErrorMessage(error=str(e), step_name=self.name)
     
+    def _handle_outgoing_message(self, message):
+        """Handler pour traiter les messages sortants via ChunkQueue"""
+        try:
+            if self.mode == "audio_to_text":
+                # Mode ASR: diffuser du texte transcrit
+                text_data = message.data
+                asyncio.run_coroutine_threadsafe(
+                    self.broadcast_text(str(text_data)),
+                    self.event_loop
+                )
+            elif self.mode == "text_to_audio":
+                # Mode TTS: diffuser des chunks audio
+                audio_data = message.data
+                asyncio.run_coroutine_threadsafe(
+                    self.broadcast_audio(audio_data),
+                    self.event_loop
+                )
+        except Exception as e:
+            pass
+    
+    def _handle_incoming_message(self, message_data):
+        """Handler pour traiter les messages entrants via ChunkQueue"""
+        try:
+            # Ce handler peut être utilisé pour du preprocessing des messages entrants
+            # Pour l'instant, le traitement direct dans websocket_handler est suffisant
+            pass
+        except Exception as e:
+            pass
+    
     def cleanup(self):
         self.running = False
+        
+        # Arrête les ChunkQueues
+        if hasattr(self, 'outgoing_message_queue') and self.outgoing_message_queue:
+            self.outgoing_message_queue.stop()
+        if hasattr(self, 'incoming_message_queue') and self.incoming_message_queue:
+            self.incoming_message_queue.stop()
+        
         if self.websocket_server:
             self.websocket_server.close()
         if self.server_thread and self.server_thread.is_alive():

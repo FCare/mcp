@@ -1,11 +1,11 @@
 import time
 import threading
 import requests
-import base64
 from typing import Optional, Dict, Any
 
 from pipeline_framework import PipelineStep
 from messages.base_message import Message, InputMessage, OutputMessage, ErrorMessage, MessageType
+from utils.chunk_queue import ChunkQueue
 
 
 class ChatterboxTTSStep(PipelineStep):
@@ -33,6 +33,9 @@ class ChatterboxTTSStep(PipelineStep):
         self.interrupted = False
         self._lock = threading.Lock()
         self._current_response = None
+        
+        # ChunkQueue pour traiter les chunks audio de manière asynchrone
+        self.audio_chunk_queue = ChunkQueue(handler=self._process_audio_chunk_async)
     
     def init(self) -> bool:
         return True
@@ -106,7 +109,8 @@ class ChatterboxTTSStep(PipelineStep):
                                 print(f"🚀 TTFT: {ttft_ms:.1f}ms")
                             
                             total_audio_bytes += len(chunk)
-                            self._process_audio_chunk(chunk)
+                            # Envoie le chunk vers la ChunkQueue pour traitement asynchrone
+                            self.audio_chunk_queue.enqueue(chunk)
                     
                     # Calcul des métriques finales
                     end_time = time.time()
@@ -125,6 +129,10 @@ class ChatterboxTTSStep(PipelineStep):
         finally:
             with self._lock:
                 self._current_response = None
+    
+    def _process_audio_chunk_async(self, chunk):
+        """Handler asynchrone pour traiter les chunks audio via ChunkQueue"""
+        self._process_audio_chunk(chunk)
     
     def _process_audio_chunk(self, chunk):
         if chunk:
@@ -163,3 +171,7 @@ class ChatterboxTTSStep(PipelineStep):
                     self._current_response.close()
                 except:
                     pass
+        
+        # Arrête la ChunkQueue
+        if hasattr(self, 'audio_chunk_queue') and self.audio_chunk_queue:
+            self.audio_chunk_queue.stop()
