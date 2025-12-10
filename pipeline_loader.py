@@ -9,6 +9,7 @@ from steps.websocket.websocket_step import WebSocketStep
 from steps.asr.kyutai_asr_step import KyutaiASRStep
 from steps.tts.chatterbox_tts_step import ChatterboxTTSStep
 from steps.chat.openai_chat_step import OpenAIChatStep
+from steps.utils.duplicator_step import DuplicatorStep
 
 
 class PipelineLoader:
@@ -109,7 +110,8 @@ class PipelineLoader:
             "audio_websocket_server": WebSocketStep,
             "kyutai_asr": KyutaiASRStep,
             "chatterbox_tts": ChatterboxTTSStep,
-            "openai_chat": OpenAIChatStep
+            "openai_chat": OpenAIChatStep,
+            "duplicator": DuplicatorStep
         }
         
         step_class = type_class_mapping.get(step_type)
@@ -158,10 +160,72 @@ class PipelineLoader:
             except Exception as e:
                 return None
         
+        # Gestion des multi-connexions (pour le duplicator)
+        self._setup_multi_connections(pipeline, pipeline_def, steps_map)
+        
         self._setup_bidirectional_connections(pipeline, pipeline_def, steps_map)
         
         return pipeline
     
+    def _setup_multi_connections(self, pipeline: Pipeline, pipeline_def: Dict, steps_map: Dict):
+        """Configure les connexions multiples (ex: duplicateur vers plusieurs sorties)"""
+        try:
+            multi_connections = pipeline_def.get("multi_connections", [])
+            print(f"🔗 Configuration multi_connections: {len(multi_connections)} connexions")
+            for multi_conn in multi_connections:
+                from_step_id = multi_conn.get("from")
+                to_targets = multi_conn.get("to")
+                print(f"🔗 Multi-conn: {from_step_id} → {to_targets}")
+                
+                if not from_step_id or not to_targets:
+                    print(f"❌ Multi-conn invalide: from={from_step_id}, to={to_targets}")
+                    continue
+                
+                from_step = steps_map.get(from_step_id)
+                if not from_step:
+                    print(f"❌ From step '{from_step_id}' non trouvé dans steps_map: {list(steps_map.keys())}")
+                    continue
+                
+                print(f"✅ From step '{from_step_id}' trouvé, type: {type(from_step).__name__}")
+                
+                # Si c'est une liste de targets (cas duplicator)
+                if isinstance(to_targets, list):
+                    if hasattr(from_step, 'add_output_queue'):
+                        print(f"✅ Step {from_step_id} est un duplicateur")
+                        # C'est un duplicator
+                        for target_info in to_targets:
+                            target_id = target_info.get("target")
+                            branch = target_info.get("branch", 0)
+                            print(f"🎯 Tentative connexion branche {branch}: {from_step_id} → {target_id}")
+                            
+                            target_step = steps_map.get(target_id)
+                            if not target_step:
+                                print(f"❌ Target step '{target_id}' non trouvé dans steps_map: {list(steps_map.keys())}")
+                                continue
+                            
+                            if not hasattr(target_step, 'input_queue'):
+                                print(f"❌ Target step '{target_id}' n'a pas d'input_queue")
+                                continue
+                            
+                            if target_step.input_queue is None:
+                                print(f"❌ input_queue de '{target_id}' est None")
+                                continue
+                            
+                            from_step.add_output_queue(target_step.input_queue)
+                            print(f"✅ Multi-connection: {from_step_id} → {target_id} (branche {branch})")
+                    else:
+                        print(f"❌ Step {from_step_id} n'a pas de méthode add_output_queue")
+                
+                # Si c'est une connexion simple dans multi_connections
+                elif isinstance(to_targets, str):
+                    to_step = steps_map.get(to_targets)
+                    if to_step:
+                        pipeline.connect_steps(from_step_id, to_targets)
+                        print(f"✅ Simple connection dans multi: {from_step_id} → {to_targets}")
+                        
+        except Exception as e:
+            print(f"❌ Erreur setup multi-connections: {e}")
+
     def _setup_bidirectional_connections(self, pipeline: Pipeline, pipeline_def: Dict, steps_map: Dict):
         try:
             pipeline_name = pipeline_def.get("name") or pipeline_def.get("pipeline_id")

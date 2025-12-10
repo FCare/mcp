@@ -14,11 +14,15 @@ from utils.chunk_queue import ChunkQueue
 try:
     import openai
     import dotenv
+    OPENAI_DEPENDENCIES_AVAILABLE = True
 except ImportError as e:
     print(f"""
     Missing dependencies for OpenAI Chat: {e}
     Install with: pip install openai python-dotenv
     """)
+    OPENAI_DEPENDENCIES_AVAILABLE = False
+    openai = None
+    dotenv = None
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +98,8 @@ class OpenAIChatStep(PipelineStep):
         super().__init__(name, config)
         
         # Charge le fichier .env
-        dotenv.load_dotenv()
+        if OPENAI_DEPENDENCIES_AVAILABLE and dotenv:
+            dotenv.load_dotenv()
         
         # Configuration OpenAI
         self.api_key = config.get("api_key") if config else None

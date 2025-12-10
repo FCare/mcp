@@ -1,0 +1,22 @@
+{
+  "id": "duplicator_step",
+  "name": "Duplicator Step",
+  "description": "Step qui duplique les messages vers plusieurs sorties pour traitement parallèle",
+  "type": "duplicator",
+  "version": "1.0.0",
+  "parameters": {
+    "duplication_count": {
+      "type": "integer", 
+      "default": 2,
+      "description": "Nombre de sorties vers lesquelles dupliquer"
+    }
+  },
+  "input": {
+    "type": "any",
+    "description": "Accepte tout type de message à dupliquer"
+  },
+  "output": {
+    "type": "multiple",
+    "description": "Messages dupliqués vers plusieurs queues de sortie"
+  }
+}

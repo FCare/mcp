@@ -74,8 +74,29 @@ class WebSocketStep(PipelineStep):
         try:
             logger.info(f"WebSocket received message from ChatStep: type={type(message_data).__name__}")
             
+            # Gestion spéciale pour les messages de contrôle (comme audio_finished)
+            if isinstance(message_data, dict) and message_data.get('type') == 'audio_finished':
+                # Message de fin d'audio - le routage se fait via le duplicateur
+                logger.info(f"Sending audio_finished signal to all connected clients")
+                finish_message = json.dumps({
+                    "type": "audio_finished",
+                    "total_chunks": message_data.get('total_chunks', 0),
+                    "total_bytes": message_data.get('total_bytes', 0),
+                    "duration_seconds": message_data.get('duration_seconds', 0),
+                    "timestamp": time.time()
+                })
+                # Envoyer à tous les clients connectés
+                for client_id in list(self.connections.keys()):
+                    try:
+                        websocket = self.connections[client_id]
+                        await websocket.send(finish_message)
+                        logger.info(f"✅ Sent audio_finished to {client_id}")
+                    except Exception as e:
+                        logger.error(f"❌ Failed to send audio_finished to {client_id}: {e}")
+                return
+            
             if hasattr(message_data, 'data'):
-                text_data = message_data.data
+                data = message_data.data
                 metadata = getattr(message_data, 'metadata', {})
                 
                 # Extraire le client_id original de la métadonnée
@@ -85,13 +106,35 @@ class WebSocketStep(PipelineStep):
                     logger.warning(f"No original_client_id in metadata, cannot route response: {metadata}")
                     return
                 
-                logger.info(f"Sending chat response to client {original_client_id}: '{str(text_data)[:50]}{'...' if len(str(text_data)) > 50 else ''}'")
+                # Différencier texte vs audio selon le type de données et metadata
+                message_type = metadata.get('type', 'unknown')
                 
-                # SIMPLE : await direct ! ChunkQueue gère la boucle asyncio
-                if original_client_id in self.connections:
-                    await self.send_to_specific_client(original_client_id, str(text_data), metadata)
+                if message_type == 'audio_chunk' and isinstance(data, bytes):
+                    # Message audio - envoyer comme JSON avec base64
+                    logger.info(f"Sending audio chunk to client {original_client_id}: {len(data)} bytes")
+                    await self.send_audio_to_client(original_client_id, data, metadata)
+                    
+                elif message_type == 'audio_finished' or (isinstance(data, dict) and data.get('type') == 'audio_finished'):
+                    # Signal de fin de streaming audio
+                    logger.info(f"Sending audio finished signal to client {original_client_id}")
+                    finish_message = {
+                        "type": "audio_finished",
+                        "total_chunks": data.get('total_chunks', 0) if isinstance(data, dict) else 0,
+                        "total_bytes": data.get('total_bytes', 0) if isinstance(data, dict) else 0,
+                        "timestamp": time.time(),
+                        "metadata": metadata
+                    }
+                    await self._send_to_client(original_client_id, json.dumps(finish_message))
+                    
+                elif isinstance(data, (str, int, float)):
+                    # Message texte - envoyer comme chat_response
+                    logger.info(f"Sending chat response to client {original_client_id}: '{str(data)[:50]}{'...' if len(str(data)) > 50 else ''}'")
+                    await self.send_to_specific_client(original_client_id, str(data), metadata)
+                    
                 else:
-                    logger.warning(f"Client {original_client_id} not connected (available: {list(self.connections.keys())})")
+                    # Données inconnues - convertir en string par défaut
+                    logger.warning(f"Unknown data type for client {original_client_id}: {type(data)}")
+                    await self.send_to_specific_client(original_client_id, str(data), metadata)
                 
             else:
                 logger.warning(f"Received message without data attribute: {message_data}")
@@ -200,6 +243,32 @@ class WebSocketStep(PipelineStep):
             logger.debug(f"✅ Sent to {client_id}: '{text[:30]}{'...' if len(text) > 30 else ''}'")
         except Exception as e:
             logger.error(f"❌ Failed to send to {client_id}: {e}")
+            # Supprimer la connexion défaillante
+            if client_id in self.connections:
+                del self.connections[client_id]
+                logger.info(f"🗑️ Removed disconnected client {client_id}")
+
+    async def send_audio_to_client(self, client_id: str, audio_data: bytes, metadata: dict):
+        """Envoie un chunk audio à un client spécifique au format JSON"""
+        if client_id not in self.connections:
+            logger.warning(f"Client {client_id} not connected for audio")
+            return
+            
+        try:
+            # Encoder l'audio en base64 pour transmission JSON
+            audio_b64 = base64.b64encode(audio_data).decode()
+            
+            message = {
+                "type": "audio_chunk",
+                "data": audio_b64,
+                "timestamp": time.time(),
+                "metadata": metadata
+            }
+            
+            await self.connections[client_id].send(json.dumps(message))
+            logger.debug(f"✅ Sent audio chunk to {client_id}: {len(audio_data)} bytes")
+        except Exception as e:
+            logger.error(f"❌ Failed to send audio to {client_id}: {e}")
             # Supprimer la connexion défaillante
             if client_id in self.connections:
                 del self.connections[client_id]

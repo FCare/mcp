@@ -17,12 +17,15 @@ from utils.chunk_queue import ChunkQueue
 try:
     import websocket
     import msgpack
+    MOSHI_DEPENDENCIES_AVAILABLE = True
 except ImportError as e:
     print(f"""
     Missing dependencies for MoshiASR: {e}
     Install with: pip install websocket-client msgpack
     """)
-    sys.exit(1)
+    MOSHI_DEPENDENCIES_AVAILABLE = False
+    websocket = None
+    msgpack = None
 
 logger = logging.getLogger(__name__)
 
@@ -485,9 +488,9 @@ class KyutaiASRStep(PipelineStep):
                         # Asyncio queue
                         loop = asyncio.get_event_loop()
                         if loop.is_running():
-                            asyncio.create_task(self.output_queue.put(transcription_message))
+                            asyncio.create_task(self.output_queue.enqueue(transcription_message))
                         else:
-                            loop.run_until_complete(self.output_queue.put(transcription_message))
+                            loop.run_until_complete(self.output_queue.enqueue(transcription_message))
                     else:
                         # Queue normale
                         self.output_queue.put_nowait(transcription_message)
@@ -569,9 +572,9 @@ class KyutaiASRStep(PipelineStep):
                     # Asyncio queue
                     loop = asyncio.get_event_loop()
                     if loop.is_running():
-                        asyncio.create_task(self.output_queue.put(message))
+                        asyncio.create_task(self.output_queue.enqueue(message))
                     else:
-                        loop.run_until_complete(self.output_queue.put(message))
+                        loop.run_until_complete(self.output_queue.enqueue(message))
                 else:
                     # Queue normale
                     self.output_queue.put_nowait(message)

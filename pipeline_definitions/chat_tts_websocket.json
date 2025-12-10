@@ -1,0 +1,79 @@
+{
+  "id": "chat_tts_websocket",
+  "name": "Pipeline Chat TTS WebSocket", 
+  "description": "Pipeline de chat avec streaming texte ET génération audio via TTS",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "websocket_server",
+      "type": "websocket_server",
+      "position": 1,
+      "config": {
+        "host": "localhost",
+        "port": 8769,
+        "mode": "text_to_text"
+      }
+    },
+    {
+      "id": "openai_chat", 
+      "type": "openai_chat",
+      "position": 2,
+      "config": {
+        "model": "gpt-4o-mini",
+        "temperature": 0.7,
+        "system_prompt": "Tu es un assistant utile qui répond de manière concise et claire."
+      }
+    },
+    {
+      "id": "duplicator",
+      "type": "duplicator", 
+      "position": 3,
+      "config": {
+        "duplication_count": 2
+      }
+    },
+    {
+      "id": "tts_step",
+      "type": "chatterbox_tts",
+      "position": 4,
+      "config": {
+        "host": "https://caronboulme.fr/chatterbox/speech",
+        "voice": "Fip4",
+        "language_id": "fr",
+        "speed": 1.0,
+        "quality_mode": "quality"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "websocket_server",
+      "to": "openai_chat"
+    },
+    {
+      "from": "openai_chat",
+      "to": "duplicator"
+    },
+    {
+      "from": "tts_step",
+      "to": "websocket_server"
+    }
+  ],
+  "multi_connections": [
+    {
+      "from": "duplicator",
+      "to": [
+        {
+          "target": "websocket_server",
+          "branch": 0,
+          "description": "Texte streaming direct"
+        },
+        {
+          "target": "tts_step", 
+          "branch": 1,
+          "description": "Audio via TTS"
+        }
+      ]
+    }
+  ]
+}
