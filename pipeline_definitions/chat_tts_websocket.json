@@ -13,7 +13,7 @@
     },
     {
       "instance_id": "websocket_server",
-      "step_definition": "websocket_server",
+      "step_definition": "FastAPI WebSocket Step",
       "config_overrides": {
         "port": 8769,
         "mode": "text_to_text"

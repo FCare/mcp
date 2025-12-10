@@ -1,0 +1,62 @@
+{
+    "id": "fastapi_websocket_step",
+    "name": "FastAPI WebSocket Step",
+    "class_name": "FastAPIWebSocketStep", 
+    "module_path": "steps.websocket.fastapi_websocket_step",
+    "description": "Serveur WebSocket utilisant FastAPI avec gestion avancée des connexions",
+    "default_config": {
+        "host": "localhost",
+        "port": 8765,
+        "mode": "text_to_text",
+        "audio_format": "pcm16",
+        "sample_rate": 24000
+    },
+    "config_schema": {
+        "type": "object",
+        "properties": {
+            "host": {
+                "type": "string",
+                "description": "Adresse IP d'écoute du serveur WebSocket",
+                "default": "localhost"
+            },
+            "port": {
+                "type": "integer",
+                "description": "Port d'écoute du serveur WebSocket",
+                "default": 8765,
+                "minimum": 1024,
+                "maximum": 65535
+            },
+            "mode": {
+                "type": "string",
+                "description": "Mode de fonctionnement du serveur",
+                "enum": ["text_to_text", "audio_to_text", "text_to_audio", "audio_to_audio"],
+                "default": "text_to_text"
+            },
+            "audio_format": {
+                "type": "string",
+                "description": "Format audio supporté",
+                "enum": ["pcm16", "mp3", "wav"],
+                "default": "pcm16"
+            },
+            "sample_rate": {
+                "type": "integer",
+                "description": "Taux d'échantillonnage audio",
+                "default": 24000,
+                "minimum": 8000,
+                "maximum": 48000
+            }
+        },
+        "additionalProperties": false
+    },
+    "inputs": ["text", "audio", "binary"],
+    "outputs": ["text", "audio", "binary"],
+    "capabilities": [
+        "websocket_server",
+        "real_time_communication", 
+        "multi_client_support",
+        "cors_enabled",
+        "auto_documentation",
+        "health_endpoints",
+        "connection_management"
+    ]
+}
