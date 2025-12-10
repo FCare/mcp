@@ -1,6 +1,8 @@
 {
   "id": "duplicator_step",
   "name": "Duplicator Step",
+  "class_name": "DuplicatorStep",
+  "module_path": "steps.utils.duplicator_step",
   "description": "Step qui duplique les messages vers plusieurs sorties pour traitement parallèle",
   "type": "duplicator",
   "version": "1.0.0",

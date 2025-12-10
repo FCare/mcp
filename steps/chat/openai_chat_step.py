@@ -152,6 +152,13 @@ class OpenAIChatStep(PipelineStep):
     def _handle_input_event(self, input_message):
         try:
             with self._lock:
+                # Vérifier si c'est une mise à jour de system prompt
+                if (hasattr(input_message, 'metadata') and
+                    input_message.metadata and
+                    input_message.metadata.get('type') == 'system_prompt_update'):
+                    self._handle_system_prompt_update(input_message)
+                    return
+                
                 # Extraire le client_id des métadonnées du message entrant
                 if hasattr(input_message, 'metadata') and input_message.metadata:
                     self.current_client_id = input_message.metadata.get('original_client_id') or input_message.metadata.get('client_id')
@@ -179,6 +186,24 @@ class OpenAIChatStep(PipelineStep):
         
         except Exception as e:
             logger.error(f"Erreur handling input event: {e}")
+    
+    def _handle_system_prompt_update(self, input_message):
+        """Traite les mises à jour de system prompt"""
+        try:
+            # Extraire le nouveau system prompt
+            if hasattr(input_message, 'data'):
+                new_system_prompt = str(input_message.data)
+            elif hasattr(input_message, 'text'):
+                new_system_prompt = input_message.text
+            else:
+                new_system_prompt = str(input_message)
+            
+            # Mettre à jour le system prompt
+            self.system_prompt = new_system_prompt
+            logger.info(f"System prompt mis à jour: {new_system_prompt[:100]}...")
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la mise à jour du system prompt: {e}")
     
     def _process_chat_request(self, text: str):
         """Traite une requête de chat complète"""
@@ -285,6 +310,30 @@ class OpenAIChatStep(PipelineStep):
         except Exception as e:
             logger.error(f"Erreur appel OpenAI: {e}")
             self._send_error_response(str(e))
+    
+    def _handle_system_prompt_update(self, prompt_message):
+        """Traite une mise à jour du system prompt"""
+        try:
+            new_system_prompt = prompt_message.data
+            prompt_id = prompt_message.metadata.get('prompt_id', 0)
+            source = prompt_message.metadata.get('source', 'unknown')
+            
+            # Mettre à jour le system prompt
+            old_prompt = self.system_prompt
+            self.system_prompt = new_system_prompt
+            
+            logger.info(f"System prompt mis à jour par {source} (ID: {prompt_id})")
+            logger.debug(f"Ancien prompt: {old_prompt[:50]}...")
+            logger.debug(f"Nouveau prompt: {new_system_prompt[:50]}...")
+            
+            # Optionnel: réinitialiser l'historique de conversation pour un fresh start
+            reset_history = prompt_message.metadata.get('reset_history', False)
+            if reset_history:
+                self.conversation_history = []
+                logger.info("Historique de conversation réinitialisé")
+            
+        except Exception as e:
+            logger.error(f"Erreur mise à jour system prompt: {e}")
     
     def _handle_response_streaming(self, response_event: LLMEvent):
         try:

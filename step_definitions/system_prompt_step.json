@@ -1,0 +1,26 @@
+{
+    "id": "system_prompt_step",
+    "name": "System Prompt Step",
+    "class_name": "SystemPromptStep",
+    "module_path": "steps.system.system_prompt_step",
+    "description": "Génère et envoie des system prompts dynamiques au chat",
+    "default_config": {
+        "prompt_template": "Tu es un assistant virtuel intelligent et bienveillant. Tu réponds de manière claire, concise et utile. Adapte ton niveau de langage à la situation et sois créatif dans tes réponses."
+    },
+    "config_schema": {
+        "type": "object",
+        "properties": {
+            "prompt_template": {
+                "type": "string",
+                "description": "Template pour le system prompt",
+                "default": "Tu es un assistant virtuel intelligent et bienveillant. Tu réponds de manière claire, concise et utile. Adapte ton niveau de langage à la situation et sois créatif dans tes réponses."
+            }
+        },
+        "additionalProperties": false
+    },
+    "output_format": {
+        "message_type": "OutputMessage",
+        "metadata_type": "system_prompt_update",
+        "description": "Envoie des messages avec le system prompt dans 'data' et metadata.type='system_prompt_update'"
+    }
+}

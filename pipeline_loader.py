@@ -1,29 +1,47 @@
 import json
 import os
+import importlib
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 
 from pipeline_framework import Pipeline, PipelineStep
 from messages.base_message import InputMessage, OutputMessage
-from steps.websocket.websocket_step import WebSocketStep
-from steps.asr.kyutai_asr_step import KyutaiASRStep
-from steps.tts.chatterbox_tts_step import ChatterboxTTSStep
-from steps.chat.openai_chat_step import OpenAIChatStep
-from steps.utils.duplicator_step import DuplicatorStep
-from steps.text.sentence_normalizer_step import SentenceNormalizerStep
 
 
 class PipelineLoader:
     
-    def __init__(self, step_definitions_dir: str = "step_definitions", 
+    def __init__(self, step_definitions_dir: str = "step_definitions",
                  pipeline_definitions_dir: str = "pipeline_definitions"):
         self.step_definitions_dir = Path(step_definitions_dir)
         self.pipeline_definitions_dir = Path(pipeline_definitions_dir)
         self.step_definitions = {}
         self.pipeline_definitions = {}
+        self.step_class_cache = {}  # Cache pour éviter d'importer plusieurs fois
         
         self.load_step_definitions()
         self.load_pipeline_definitions()
+    
+    def _import_step_class(self, step_definition: Dict) -> Optional[type]:
+        """Importe dynamiquement une classe de step basée sur module_path et class_name"""
+        module_path = step_definition.get("module_path")
+        class_name = step_definition.get("class_name")
+        
+        if not module_path or not class_name:
+            return None
+        
+        # Utiliser le cache si déjà importé
+        cache_key = f"{module_path}.{class_name}"
+        if cache_key in self.step_class_cache:
+            return self.step_class_cache[cache_key]
+        
+        try:
+            module = importlib.import_module(module_path)
+            step_class = getattr(module, class_name)
+            self.step_class_cache[cache_key] = step_class
+            return step_class
+        except (ImportError, AttributeError) as e:
+            print(f"❌ Impossible d'importer {class_name} depuis {module_path}: {e}")
+            return None
     
     def load_step_definitions(self):
         if not self.step_definitions_dir.exists():
@@ -106,18 +124,16 @@ class PipelineLoader:
         step_type = step_config.get("type") or step_config.get("step_type")
         config = step_config.get("config", {})
         
-        type_class_mapping = {
-            "websocket_server": WebSocketStep,
-            "audio_websocket_server": WebSocketStep,
-            "kyutai_asr": KyutaiASRStep,
-            "chatterbox_tts": ChatterboxTTSStep,
-            "openai_chat": OpenAIChatStep,
-            "duplicator": DuplicatorStep,
-            "sentence_normalizer": SentenceNormalizerStep
-        }
+        # Trouver la step definition correspondante
+        step_definition = self.step_definitions.get(step_type)
+        if not step_definition:
+            print(f"❌ Step definition '{step_type}' introuvable")
+            return None
         
-        step_class = type_class_mapping.get(step_type)
+        # Importer dynamiquement la classe
+        step_class = self._import_step_class(step_definition)
         if not step_class:
+            print(f"❌ Impossible d'importer la classe pour '{step_type}'")
             return None
         
         try:
@@ -134,21 +150,9 @@ class PipelineLoader:
         if not step_definition:
             return None
         
-        # Extraire les infos nécessaires de la step_definition
-        # Utiliser un mapping pour convertir les noms en types compatibles
+        # Utiliser directement le nom de la step definition comme type
         step_name = step_definition.get("name") or step_definition_ref
-        
-        # Mapping des noms de step_definition vers types pipeline
-        name_to_type_mapping = {
-            "websocket_server": "websocket_server",
-            "OpenAI Chat Step": "openai_chat",
-            "Duplicator Step": "duplicator",
-            "Sentence Normalizer Step": "sentence_normalizer",
-            "chatterbox_tts": "chatterbox_tts",
-            "Kyutai ASR Step": "kyutai_asr"
-        }
-        
-        step_type = name_to_type_mapping.get(step_name, step_name)
+        step_type = step_name  # Plus besoin de mapping, on utilise le nom directement
         step_class_name = step_definition.get("class_name")
         step_module_path = step_definition.get("module_path")
         

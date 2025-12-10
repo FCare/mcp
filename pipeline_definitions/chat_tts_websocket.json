@@ -5,6 +5,13 @@
   "version": "1.0.0",
   "step_instances": [
     {
+      "instance_id": "system_prompt",
+      "step_definition": "System Prompt Step",
+      "config_overrides": {
+        "prompt_template": "Tu es un assistant virtuel intelligent et utile. Tu réponds de manière concise et claire."
+      }
+    },
+    {
       "instance_id": "websocket_server",
       "step_definition": "websocket_server",
       "config_overrides": {
@@ -15,9 +22,7 @@
     {
       "instance_id": "openai_chat",
       "step_definition": "OpenAI Chat Step",
-      "config_overrides": {
-        "system_prompt": "Tu es un assistant utile qui répond de manière concise et claire."
-      }
+      "config_overrides": {}
     },
     {
       "instance_id": "duplicator",
@@ -38,6 +43,10 @@
     }
   ],
   "connections": [
+    {
+      "from": "system_prompt",
+      "to": "openai_chat"
+    },
     {
       "from": "websocket_server",
       "to": "openai_chat"
