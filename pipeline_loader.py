@@ -126,7 +126,61 @@ class PipelineLoader:
             traceback.print_exc()
             return None
     
-    def create_pipeline_from_definition(self, pipeline_id: str, 
+    def _create_step_config_from_definition(self, step_instance: Dict, step_definition_ref: str) -> Optional[Dict]:
+        """Combine step_definition avec step_instance pour créer un step_config"""
+        step_definition = self.step_definitions.get(step_definition_ref)
+        if not step_definition:
+            return None
+        
+        # Extraire les infos nécessaires de la step_definition
+        # Utiliser un mapping pour convertir les noms en types compatibles
+        step_name = step_definition.get("name") or step_definition_ref
+        
+        # Mapping des noms de step_definition vers types pipeline
+        name_to_type_mapping = {
+            "websocket_server": "websocket_server",
+            "OpenAI Chat Step": "openai_chat",
+            "Duplicator Step": "duplicator",
+            "chatterbox_tts": "chatterbox_tts",
+            "Kyutai ASR Step": "kyutai_asr"
+        }
+        
+        step_type = name_to_type_mapping.get(step_name, step_name)
+        step_class_name = step_definition.get("class_name")
+        step_module_path = step_definition.get("module_path")
+        
+        # Config par défaut de la step_definition
+        default_config = {}
+        if "default_config" in step_definition:
+            default_config = step_definition["default_config"].copy()
+        elif "example_config" in step_definition:
+            default_config = step_definition["example_config"].copy()
+        elif "configuration" in step_definition:
+            # Extraire les valeurs par défaut du schéma de configuration
+            config_schema = step_definition["configuration"]
+            for param_name, param_def in config_schema.items():
+                if "default" in param_def:
+                    default_config[param_name] = param_def["default"]
+        
+        # Combiner default_config avec config_overrides de l'instance
+        instance_overrides = step_instance.get("config_overrides", {})
+        # Fallback vers "config" pour compatibilité avec ancienne structure
+        if not instance_overrides:
+            instance_overrides = step_instance.get("config", {})
+        
+        merged_config = {**default_config, **instance_overrides}
+        
+        # Créer le step_config dans l'ancien format pour compatibilité
+        step_config = {
+            "id": step_instance.get("instance_id"),
+            "type": step_type,
+            "position": step_instance.get("position", 0),
+            "config": merged_config
+        }
+        
+        return step_config
+    
+    def create_pipeline_from_definition(self, pipeline_id: str,
                                        custom_config: Optional[Dict] = None) -> Optional[Pipeline]:
         pipeline_def = self.get_pipeline_definition(pipeline_id)
         if not pipeline_def:
@@ -135,96 +189,71 @@ class PipelineLoader:
         pipeline_name = pipeline_def.get("name", pipeline_id)
         pipeline = Pipeline(pipeline_name)
         
-        steps_config = pipeline_def.get("steps", [])
+        # Support pour la nouvelle structure step_instances (avec références step_definitions)
+        step_instances = pipeline_def.get("step_instances", [])
+        if not step_instances:
+            # Fallback vers l'ancienne structure "steps"
+            step_instances = pipeline_def.get("steps", [])
+        
         steps_map = {}
         
-        for step_config in sorted(steps_config, key=lambda x: x.get("position", 0)):
-            step_id = step_config.get("id") or step_config.get("step_id")
-            if custom_config and step_id in custom_config:
-                step_config["config"].update(custom_config[step_id])
+        for step_instance in step_instances:
+            step_instance_id = step_instance.get("instance_id") or step_instance.get("id") or step_instance.get("step_id")
+            
+            # Résoudre la step_definition si présente
+            step_definition_ref = step_instance.get("step_definition")
+            if step_definition_ref:
+                # Créer la config en combinant step_definition + instance config
+                step_config = self._create_step_config_from_definition(step_instance, step_definition_ref)
+                if not step_config:
+                    print(f"❌ Step definition '{step_definition_ref}' introuvable pour instance '{step_instance_id}'")
+                    print(f"🔍 Step definitions disponibles: {list(self.step_definitions.keys())}")
+                    continue
+            else:
+                # Ancienne structure directe
+                step_config = step_instance
+            
+            if custom_config and step_instance_id in custom_config:
+                step_config["config"].update(custom_config[step_instance_id])
             
             step = self.create_step_from_config(step_config)
             if step:
+                print(f"✅ Step '{step_instance_id}' créé avec succès")
                 pipeline.add_step(step)
-                steps_map[step_id] = step
+                steps_map[step_instance_id] = step
             else:
+                print(f"❌ Impossible de créer le step '{step_instance_id}' avec config: {step_config}")
                 return None
         
         connections = pipeline_def.get("connections", [])
         for connection in connections:
             from_step = connection.get("from") or connection.get("from_step")
-            to_step = connection.get("to") or connection.get("to_step")
+            to_targets = connection.get("to") or connection.get("to_step")
             
-            try:
-                pipeline.connect_steps(from_step, to_step)
-            except Exception as e:
-                return None
+            if isinstance(to_targets, str):
+                # Connexion simple
+                try:
+                    pipeline.connect_steps(from_step, to_targets)
+                except Exception as e:
+                    return None
+            elif isinstance(to_targets, list):
+                # Connexions multiples - l'ordre détermine l'index de branche
+                from_step_obj = steps_map.get(from_step)
+                if from_step_obj and hasattr(from_step_obj, 'add_output_queue'):
+                    print(f"🔗 Multi-connection: {from_step} → {to_targets}")
+                    for target_id in to_targets:
+                        target_step = steps_map.get(target_id)
+                        if target_step and hasattr(target_step, 'input_queue'):
+                            from_step_obj.add_output_queue(target_step.input_queue)
+                            print(f"✅ Connection: {from_step} → {target_id}")
         
-        # Gestion des multi-connexions (pour le duplicator)
-        self._setup_multi_connections(pipeline, pipeline_def, steps_map)
+        # Plus besoin de multi_connections - syntaxe unifiée
         
         self._setup_bidirectional_connections(pipeline, pipeline_def, steps_map)
         
         return pipeline
     
-    def _setup_multi_connections(self, pipeline: Pipeline, pipeline_def: Dict, steps_map: Dict):
-        """Configure les connexions multiples (ex: duplicateur vers plusieurs sorties)"""
-        try:
-            multi_connections = pipeline_def.get("multi_connections", [])
-            print(f"🔗 Configuration multi_connections: {len(multi_connections)} connexions")
-            for multi_conn in multi_connections:
-                from_step_id = multi_conn.get("from")
-                to_targets = multi_conn.get("to")
-                print(f"🔗 Multi-conn: {from_step_id} → {to_targets}")
-                
-                if not from_step_id or not to_targets:
-                    print(f"❌ Multi-conn invalide: from={from_step_id}, to={to_targets}")
-                    continue
-                
-                from_step = steps_map.get(from_step_id)
-                if not from_step:
-                    print(f"❌ From step '{from_step_id}' non trouvé dans steps_map: {list(steps_map.keys())}")
-                    continue
-                
-                print(f"✅ From step '{from_step_id}' trouvé, type: {type(from_step).__name__}")
-                
-                # Si c'est une liste de targets (cas duplicator)
-                if isinstance(to_targets, list):
-                    if hasattr(from_step, 'add_output_queue'):
-                        print(f"✅ Step {from_step_id} est un duplicateur")
-                        # C'est un duplicator
-                        for target_info in to_targets:
-                            target_id = target_info.get("target")
-                            branch = target_info.get("branch", 0)
-                            print(f"🎯 Tentative connexion branche {branch}: {from_step_id} → {target_id}")
-                            
-                            target_step = steps_map.get(target_id)
-                            if not target_step:
-                                print(f"❌ Target step '{target_id}' non trouvé dans steps_map: {list(steps_map.keys())}")
-                                continue
-                            
-                            if not hasattr(target_step, 'input_queue'):
-                                print(f"❌ Target step '{target_id}' n'a pas d'input_queue")
-                                continue
-                            
-                            if target_step.input_queue is None:
-                                print(f"❌ input_queue de '{target_id}' est None")
-                                continue
-                            
-                            from_step.add_output_queue(target_step.input_queue)
-                            print(f"✅ Multi-connection: {from_step_id} → {target_id} (branche {branch})")
-                    else:
-                        print(f"❌ Step {from_step_id} n'a pas de méthode add_output_queue")
-                
-                # Si c'est une connexion simple dans multi_connections
-                elif isinstance(to_targets, str):
-                    to_step = steps_map.get(to_targets)
-                    if to_step:
-                        pipeline.connect_steps(from_step_id, to_targets)
-                        print(f"✅ Simple connection dans multi: {from_step_id} → {to_targets}")
-                        
-        except Exception as e:
-            print(f"❌ Erreur setup multi-connections: {e}")
+    # Méthode obsolète - remplacée par syntaxe unifiée dans connections
 
     def _setup_bidirectional_connections(self, pipeline: Pipeline, pipeline_def: Dict, steps_map: Dict):
         try:

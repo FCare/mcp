@@ -2,22 +2,19 @@
     "id": "Pipeline Chat WebSocket",
     "name": "Pipeline Chat WebSocket", 
     "description": "Pipeline de chat conversationnel avec WebSocket et OpenAI",
-    "steps": [
+    "step_instances": [
         {
-            "id": "websocket_server",
-            "type": "websocket_server",
-            "config": {
-                "host": "localhost",
+            "instance_id": "websocket_server",
+            "step_definition": "websocket_server",
+            "config_overrides": {
                 "port": 8768,
                 "mode": "text_to_text"
             }
         },
         {
-            "id": "openai_chat",
-            "type": "openai_chat",
-            "config": {
-                "model": "gpt-4o-mini",
-                "temperature": 0.7,
+            "instance_id": "openai_chat",
+            "step_definition": "OpenAI Chat Step",
+            "config_overrides": {
                 "max_tokens": 1500,
                 "system_prompt": "You are a helpful and friendly assistant. Provide clear, concise, and engaging responses."
             }
@@ -25,12 +22,12 @@
     ],
     "connections": [
         {
-            "from_step": "websocket_server",
-            "to_step": "openai_chat"
+            "from": "websocket_server",
+            "to": "openai_chat"
         },
         {
-            "from_step": "openai_chat", 
-            "to_step": "websocket_server"
+            "from": "openai_chat",
+            "to": "websocket_server"
         }
     ]
 }

@@ -3,46 +3,31 @@
   "name": "Pipeline Chat TTS WebSocket", 
   "description": "Pipeline de chat avec streaming texte ET génération audio via TTS",
   "version": "1.0.0",
-  "steps": [
+  "step_instances": [
     {
-      "id": "websocket_server",
-      "type": "websocket_server",
-      "position": 1,
-      "config": {
-        "host": "localhost",
+      "instance_id": "websocket_server",
+      "step_definition": "websocket_server",
+      "config_overrides": {
         "port": 8769,
         "mode": "text_to_text"
       }
     },
     {
-      "id": "openai_chat", 
-      "type": "openai_chat",
-      "position": 2,
-      "config": {
-        "model": "gpt-4o-mini",
-        "temperature": 0.7,
+      "instance_id": "openai_chat",
+      "step_definition": "OpenAI Chat Step",
+      "config_overrides": {
         "system_prompt": "Tu es un assistant utile qui répond de manière concise et claire."
       }
     },
     {
-      "id": "duplicator",
-      "type": "duplicator", 
-      "position": 3,
-      "config": {
-        "duplication_count": 2
-      }
+      "instance_id": "duplicator",
+      "step_definition": "Duplicator Step",
+      "config_overrides": {}
     },
     {
-      "id": "tts_step",
-      "type": "chatterbox_tts",
-      "position": 4,
-      "config": {
-        "host": "https://caronboulme.fr/chatterbox/speech",
-        "voice": "Fip4",
-        "language_id": "fr",
-        "speed": 1.0,
-        "quality_mode": "quality"
-      }
+      "instance_id": "tts_step",
+      "step_definition": "chatterbox_tts",
+      "config_overrides": {}
     }
   ],
   "connections": [
@@ -55,25 +40,12 @@
       "to": "duplicator"
     },
     {
+      "from": "duplicator",
+      "to": ["websocket_server", "tts_step"]
+    },
+    {
       "from": "tts_step",
       "to": "websocket_server"
-    }
-  ],
-  "multi_connections": [
-    {
-      "from": "duplicator",
-      "to": [
-        {
-          "target": "websocket_server",
-          "branch": 0,
-          "description": "Texte streaming direct"
-        },
-        {
-          "target": "tts_step", 
-          "branch": 1,
-          "description": "Audio via TTS"
-        }
-      ]
     }
   ]
 }
