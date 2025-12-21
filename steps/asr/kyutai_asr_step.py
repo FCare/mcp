@@ -145,6 +145,8 @@ class MoshiASR:
         self.packets_received = 0
         
         self.output_queue = None
+        self.text_buffer = []
+        self.current_client_id = None
 
         logger.debug(f"{self.name}: Initialized")
 
@@ -272,8 +274,48 @@ class MoshiASR:
             logger.error(f"{self.name}: Error processing message: {e}")
 
     def _enqueue_event(self, event: ASREvent):
+        logger.debug(f"{self.name}: _enqueue_event called with type={event.type}")
         if self.output_queue:
-            self.output_queue.enqueue(event)
+            # Convertir ASREvent en OutputMessage pour le pipeline
+            if event.type == ASREventType.TEXT:
+                # Ajouter le mot au buffer d'abord
+                self.text_buffer.append(event.text)
+                logger.debug(f"{self.name}: Added word '{event.text}' to buffer, buffer now: {self.text_buffer}")
+                
+                # Message transcript_chunk pour streaming
+                message = OutputMessage(
+                    result=event.text,  # Utilise 'result' pas 'data'
+                    metadata={
+                        "client_id": self.current_client_id,
+                        "transcription_type": "partial",
+                        "message_type": "transcript_chunk",
+                        "timestamp": event.timestamp
+                    }
+                )
+                self.output_queue.enqueue(message)
+                logger.info(f"{self.name}: Sent transcript_chunk: '{event.text}' for client {self.current_client_id}")
+                
+            elif event.type == ASREventType.END:
+                # Message transcript_done pour LLM
+                full_text = ' '.join(self.text_buffer).strip()
+                logger.debug(f"{self.name}: Creating transcript_done from buffer: '{full_text}'")
+                message = OutputMessage(
+                    result=full_text,  # Utilise 'result' pas 'data'
+                    metadata={
+                        "client_id": self.current_client_id,
+                        "transcription_type": "complete",
+                        "message_type": "transcript_done",
+                        "timestamp": event.timestamp
+                    }
+                )
+                self.output_queue.enqueue(message)
+                logger.info(f"{self.name}: Sent transcript_done: '{full_text}' for client {self.current_client_id}")
+                # Reset buffer after sending complete transcript
+                self.text_buffer = []
+            else:
+                logger.debug(f"{self.name}: Ignoring event type {event.type}")
+        else:
+            logger.error(f"{self.name}: No output_queue to send event!")
 
     def on_error(self, ws, error):
         """WebSocket error callback."""
@@ -317,7 +359,7 @@ class MoshiASR:
                 logger.error(f"{self.name}: Error sending silence packet {i}: {e}")
                 break
 
-    def _process_audio_chunk(self, audio_chunk: str):
+    def _process_audio_chunk(self, audio_chunk: str, client_id: str = None):
         """
         Main entry point - direct synchronous sending.
         
@@ -326,6 +368,10 @@ class MoshiASR:
         if not self._connected or not self._stream_active:
             logger.debug("not active")
             return
+            
+        # Update client_id if provided
+        if client_id:
+            self.current_client_id = client_id
             
         try:
             # Decode binary audio data using struct.unpack
@@ -435,35 +481,41 @@ class KyutaiASRStep(PipelineStep):
     
     def _handle_input_message(self, message: Message):
         try:
+            logger.info(f"🎤 ASR: _handle_input_message called with type={message.type}")
             if message.type != MessageType.INPUT:
-                logger.warning(f"Type de message non supporté: {message.type}")
+                logger.warning(f"🎤 ASR: Type de message non supporté: {message.type}")
                 return
             
             # Récupère les données audio
             audio_data = message.data
             if not audio_data:
-                logger.error("Pas de données audio dans le message")
+                logger.error("🎤 ASR: Pas de données audio dans le message")
                 return
             
             # Récupère l'ID du client pour le routage de retour
             if message.metadata:
                 self.current_client_id = message.metadata.get("client_id")
+                logger.info(f"🎤 ASR: Client ID: {self.current_client_id}")
             
             # Vérifie que MoshiASR est initialisé
             if not self.moshi_asr:
-                logger.error("MoshiASR non initialisé")
+                logger.error("🎤 ASR: MoshiASR non initialisé")
                 return
+            
+            logger.info(f"🎤 ASR: MoshiASR connecté: {self.moshi_asr._connected}, actif: {self.moshi_asr._stream_active}")
             
             # Traite le chunk audio avec MoshiASR
             if isinstance(audio_data, bytes):
                 # Audio binaire brut - utilise la méthode interne de MoshiASR
-                self.moshi_asr._process_audio_chunk(audio_data)
-                logger.debug(f"Chunk audio traité ({len(audio_data)} bytes)")
+                self.moshi_asr._process_audio_chunk(audio_data, self.current_client_id)
+                logger.info(f"🎤 ASR: Chunk audio traité ({len(audio_data)} bytes) pour client {self.current_client_id}")
             else:
-                logger.error("Format audio non supporté (attendu: bytes)")
+                logger.error(f"🎤 ASR: Format audio non supporté (attendu: bytes), reçu: {type(audio_data)}")
             
         except Exception as e:
-            logger.error(f"Erreur traitement audio ASR: {e}")
+            logger.error(f"🎤 ASR: Erreur traitement audio ASR: {e}")
+            import traceback
+            logger.error(f"🎤 ASR: Traceback: {traceback.format_exc()}")
     
     def reset_transcription(self):
         """Remet à zéro l'état de transcription"""

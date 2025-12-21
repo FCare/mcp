@@ -159,6 +159,16 @@ class OpenAIChatStep(PipelineStep):
                     self._handle_system_prompt_update(input_message)
                     return
                 
+                # FILTRER: Ignorer les transcript_chunk, ne traiter que transcript_done
+                if (hasattr(input_message, 'metadata') and
+                    input_message.metadata):
+                    message_type = input_message.metadata.get('message_type')
+                    if message_type == 'transcript_chunk':
+                        logger.debug(f"💬 Chat: Ignoring transcript_chunk (streaming), waiting for transcript_done")
+                        return
+                    elif message_type == 'transcript_done':
+                        logger.info(f"💬 Chat: Processing transcript_done - starting chat generation")
+                    
                 # Extraire le client_id des métadonnées du message entrant
                 if hasattr(input_message, 'metadata') and input_message.metadata:
                     self.current_client_id = input_message.metadata.get('original_client_id') or input_message.metadata.get('client_id')
@@ -171,7 +181,7 @@ class OpenAIChatStep(PipelineStep):
                 else:
                     text_data = str(input_message)
                 
-                logger.info(f"Chat received input: '{text_data}' from client: {self.current_client_id}")
+                logger.info(f"💬 Chat received input: '{text_data}' from client: {self.current_client_id}")
                 
                 # Accumule le texte reçu
                 self.accumulated_text += text_data + " "

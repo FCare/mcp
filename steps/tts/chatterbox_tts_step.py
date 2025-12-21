@@ -44,47 +44,67 @@ class ChatterboxTTSStep(PipelineStep):
     
     def _handle_input_message(self, input_message):
         try:
-            # Extraire le texte depuis le message du duplicateur
-            if hasattr(input_message, 'data'):
-                text_data = str(input_message.data)
-            else:
-                text_data = str(input_message)
-            
             # Préserver les métadonnées pour le routage (client_id)
             original_metadata = {}
             if hasattr(input_message, 'metadata') and input_message.metadata:
                 original_metadata = input_message.metadata.copy()
             
-            # Détecter le type de réponse (partial/finish)
-            response_type = original_metadata.get('response_type', 'unknown')
+            # 🎯 DÉTECTER LE SIGNAL FINISH DU CHAT (vient du duplicator)
+            if (original_metadata.get('chunk_type') == 'finish'):
+                print(f"🏁 TTS reçu signal FINISH du chat pour client: {original_metadata.get('original_client_id')}")
+                self._handle_finish_signal(original_metadata)
+                return
             
-            if response_type == 'partial':
-                # Accumuler le texte partiel
-                self._text_accumulator += text_data
-                self._accumulator_metadata = original_metadata
-                print(f"🔊 TTS accumulating: '{text_data}' (total: {len(self._text_accumulator)} chars)")
-                
-            elif response_type == 'finish':
-                # Synthèse du texte complet accumulé
-                full_text = self._text_accumulator.strip()
-                if full_text:
-                    print(f"🔊 TTS synthesizing complete text: '{full_text}' from client: {self._accumulator_metadata.get('original_client_id')}")
-                    self._current_metadata = self._accumulator_metadata
-                    self._synthesize_text(full_text)
-                
-                # Reset de l'accumulateur
-                self._text_accumulator = ""
-                self._accumulator_metadata = {}
-                
+            # 🎯 IGNORER LES CHUNKS TEXTE DIRECTS DU CHAT (via duplicator)
+            # Traiter seulement les phrases normalisées du sentence_normalizer
+            source = original_metadata.get('source', '')
+            chunk_type = original_metadata.get('chunk_type', '')
+            
+            # Si c'est un chunk partial du chat (pas passé par le normalizer), l'ignorer
+            if chunk_type == 'partial' and source != 'SentenceNormalizerStep':
+                print(f"🔄 TTS ignore chunk partial direct du chat, attend sentence normalizer")
+                return
+            
+            # Extraire le texte depuis le message du sentence normalizer
+            if hasattr(input_message, 'data'):
+                text_data = str(input_message.data)
+            elif hasattr(input_message, 'result'):
+                text_data = str(input_message.result)
             else:
-                # Fallback pour les messages non streaming
-                print(f"🔊 TTS received non-streaming text: '{text_data}' from client: {original_metadata.get('original_client_id')}")
-                self._current_metadata = original_metadata
-                if text_data.strip():
-                    self._synthesize_text(text_data.strip())
+                text_data = str(input_message)
+            
+            # Traiter chaque phrase normalisée
+            print(f"🔊 TTS reçu phrase normalisée: '{text_data}' from client: {original_metadata.get('original_client_id')}")
+            
+            self._current_metadata = original_metadata
+            if text_data.strip():
+                self._synthesize_text(text_data.strip())
         
         except Exception as e:
             print(f"❌ TTS error handling input: {e}")
+    
+    def _handle_finish_signal(self, finish_metadata):
+        """
+        Traite le signal finish du chat et l'envoie au websocket
+        """
+        try:
+            # Envoyer directement le signal finish au websocket
+            finish_message = OutputMessage(
+                result="",  # Signal finish sans contenu
+                metadata={
+                    "type": "chat_finished",
+                    "original_client_id": finish_metadata.get('original_client_id'),
+                    "timestamp": time.time(),
+                    "is_final_response": True  # 🎯 Signal final pour le client
+                }
+            )
+            
+            if self.output_queue:
+                self.output_queue.enqueue(finish_message)
+                print(f"🎉 TTS envoyé signal CHAT TERMINÉ pour client: {finish_metadata.get('original_client_id')}")
+        
+        except Exception as e:
+            print(f"❌ Erreur envoi finish signal: {e}")
     
     def process_message(self, message) -> Optional[OutputMessage]:
         try:
@@ -231,6 +251,14 @@ class ChatterboxTTSStep(PipelineStep):
             # S'assurer que le type reste "audio_finished"
             finish_metadata["type"] = "audio_finished"
         
+        # 🎯 Propager l'information de dernière phrase pour le client final
+        is_last_phrase = finish_metadata.get('is_last_phrase', False)
+        if is_last_phrase:
+            finish_metadata["is_final_response"] = True
+            print(f"🎉 TTS finished DERNIÈRE phrase - RÉPONSE COMPLÈTE TERMINÉE for client: {finish_metadata.get('original_client_id')}")
+        else:
+            print(f"🏁 TTS finished phrase for client: {finish_metadata.get('original_client_id')}")
+        
         # Créer et envoyer le message de fin
         finish_message = OutputMessage(
             result="",  # Pas de données, juste un signal de fin
@@ -240,7 +268,6 @@ class ChatterboxTTSStep(PipelineStep):
         if self.output_queue:
             try:
                 self.output_queue.enqueue(finish_message)
-                print(f"🏁 TTS finished signal sent for client: {finish_metadata.get('original_client_id')}")
             except Exception as e:
                 print(f"❌ Error sending audio finished signal: {e}")
     

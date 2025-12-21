@@ -126,6 +126,16 @@ class WebSocketStep(PipelineStep):
                     }
                     await self.send_to_specific_client(original_client_id, json.dumps(finish_message), metadata)
                     
+                elif message_type == 'chat_finished':
+                    # 🎯 Signal de fin de chat complet (TTS a terminé)
+                    logger.info(f"Sending chat finished signal to client {original_client_id}")
+                    chat_finish_message = {
+                        "type": "chat_finished",
+                        "timestamp": time.time(),
+                        "metadata": metadata
+                    }
+                    await self.send_to_specific_client(original_client_id, json.dumps(chat_finish_message), metadata)
+                    
                 elif isinstance(data, str) and data.strip().startswith('{"type": "audio_finished"'):
                     # Signal de fin audio sérialisé - parser et traiter
                     try:
@@ -177,11 +187,52 @@ class WebSocketStep(PipelineStep):
         
         try:
             logger.info(f"WebSocket handler started for client {client_id}, mode={self.mode}")
+            
+            # Envoyer le message de connexion établie
+            connection_message = {
+                "type": "connection_established",
+                "client_id": client_id,
+                "mode": self.mode,
+                "timestamp": time.time()
+            }
+            await websocket.send(json.dumps(connection_message))
+            
             async for message in websocket:
                 logger.info(f"Received message from {client_id}: type={type(message).__name__}, length={len(str(message)) if isinstance(message, str) else len(message) if isinstance(message, bytes) else 'unknown'}")
                 
-                if self.mode == "audio_to_text" and isinstance(message, bytes):
-                    logger.info(f"Processing audio message from {client_id}: {len(message)} bytes")
+                if self.mode in ["audio_to_text", "audio_text_to_text_audio"] and isinstance(message, str):
+                    # Mode audio : traiter les messages JSON avec audio encodé
+                    try:
+                        data = json.loads(message)
+                        if data.get("type") == "audio" and "data" in data:
+                            # Décoder l'audio base64
+                            audio_b64 = data["data"]
+                            audio_bytes = base64.b64decode(audio_b64)
+                            metadata = data.get("metadata", {})
+                            
+                            logger.info(f"Processing JSON audio message from {client_id}: {len(audio_bytes)} bytes")
+                            audio_message = InputMessage(
+                                data=audio_bytes,
+                                metadata={
+                                    "client_id": client_id,
+                                    "format": metadata.get("format", self.audio_format),
+                                    "sample_rate": metadata.get("sample_rate", self.sample_rate),
+                                    "channels": metadata.get("channels", 1),
+                                    "chunk_index": metadata.get("chunk_index", 0),
+                                    "timestamp": time.time()
+                                }
+                            )
+                            self.output_queue.enqueue(audio_message)
+                            logger.info(f"Audio message queued for processing")
+                        else:
+                            logger.warning(f"Unknown JSON message format from {client_id}: {message[:200]}...")
+                    except json.JSONDecodeError:
+                        logger.error(f"Invalid JSON from {client_id}: {message[:200]}...")
+                    except Exception as e:
+                        logger.error(f"Error processing audio JSON from {client_id}: {e}")
+                        
+                elif self.mode == "audio_to_text" and isinstance(message, bytes):
+                    logger.info(f"Processing raw audio message from {client_id}: {len(message)} bytes")
                     audio_message = InputMessage(
                         data=message,
                         metadata={
@@ -194,10 +245,13 @@ class WebSocketStep(PipelineStep):
                     self.output_queue.enqueue(audio_message)
                     logger.info(f"Audio message queued for processing")
                     
-                elif (self.mode == "text_to_audio" or self.mode == "text_to_text") and isinstance(message, str):
+                elif (self.mode in ["text_to_audio", "text_to_text", "audio_text_to_text_audio"]) and isinstance(message, str):
                     logger.info(f"Processing text message from {client_id}: '{message[:100]}{'...' if len(message) > 100 else ''}'")
                     try:
                         data = json.loads(message)
+                        # Ne pas traiter les messages audio en mode texte
+                        if data.get("type") == "audio":
+                            continue
                         text_data = data.get("text", message)
                         logger.info(f"Parsed JSON message, extracted text: '{text_data}'")
                     except:
@@ -243,8 +297,14 @@ class WebSocketStep(PipelineStep):
         websocket = self.connections[client_id]
         
         # Détermine le type de message selon les métadonnées
-        response_type = metadata.get('response_type', 'transcription')
-        message_type = "chat_response" if response_type in ['partial', 'finish'] else "transcription"
+        # Vérifier d'abord message_type explicite (pour ASR)
+        explicit_message_type = metadata.get('message_type')
+        if explicit_message_type in ['transcript_chunk', 'transcript_done']:
+            message_type = explicit_message_type
+        else:
+            # Ancien système basé sur response_type
+            response_type = metadata.get('response_type', 'transcription')
+            message_type = "chat_response" if response_type in ['partial', 'finish'] else "transcription"
         
         message = {
             "type": message_type,

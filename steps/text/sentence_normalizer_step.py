@@ -89,10 +89,23 @@ class SentenceNormalizerStep(PipelineStep):
         Handler ChunkQueue : traite les chunks de texte et produit des phrases normalisées
         """
         try:
-            if not hasattr(message, 'data') or not message.data:
+            # 🎯 LOGIQUE SIMPLIFIÉE: Ignorer les signaux finish, ils iront directement au TTS
+            if (hasattr(message, 'metadata') and message.metadata and
+                message.metadata.get('chunk_type') == 'finish'):
+                logger.info(f"🔄 SentenceNormalizer ignore le signal FINISH (il ira directement au TTS)")
                 return
             
-            text_chunk = message.data
+            # Vérifier à la fois 'data' et 'result' (OutputMessage vs InputMessage)
+            text_chunk = None
+            if hasattr(message, 'data') and message.data:
+                text_chunk = message.data
+            elif hasattr(message, 'result') and message.result:
+                text_chunk = message.result
+            
+            if not text_chunk:
+                return
+            
+            text_chunk = str(text_chunk)
             logger.debug(f"SentenceNormalizer reçu chunk: {repr(text_chunk)}")
             
             # Ajouter le chunk au buffer et récupérer les phrases complètes
@@ -102,28 +115,52 @@ class SentenceNormalizerStep(PipelineStep):
             
             # Envoyer chaque phrase complète normalisée
             for sentence in complete_sentences:
-                normalized = self._normalize_sentence(sentence)
-                if normalized.strip():
-                    logger.info(f"📤 SentenceNormalizer envoie phrase normalisée: {repr(normalized)}")
-                    
-                    # Créer message de sortie avec le texte normalisé
-                    # Préserver l'original_client_id pour le routage WebSocket
-                    new_metadata = {"source": self.name, "original_data": message.data}
-                    if hasattr(message, 'metadata') and message.metadata:
-                        # Préserver l'original_client_id du message source
-                        if 'original_client_id' in message.metadata:
-                            new_metadata['original_client_id'] = message.metadata['original_client_id']
-                    
-                    output_message = Message(
-                        type=message.type,
-                        data=normalized,
-                        metadata=new_metadata
-                    )
-                    
-                    self.output_queue.enqueue(output_message)
+                self._send_normalized_sentence(sentence, message, is_last_phrase=False)
             
         except Exception as e:
             logger.error(f"Erreur traitement chunk dans SentenceNormalizer: {e}")
+    
+    def _send_normalized_sentence(self, sentence: str, source_message: Message, is_last_phrase: bool = False):
+        """
+        Envoie une phrase normalisée avec les métadonnées appropriées
+        """
+        try:
+            normalized = self._normalize_sentence(sentence)
+            if not normalized.strip():
+                return
+            
+            logger.info(f"📤 SentenceNormalizer envoie phrase{'(DERNIÈRE)' if is_last_phrase else ''}: {repr(normalized)}")
+            
+            # 🎯 CORRECTIF: Obtenir les données source depuis data OU result
+            original_source_data = ""
+            if hasattr(source_message, 'data') and source_message.data:
+                original_source_data = source_message.data
+            elif hasattr(source_message, 'result') and source_message.result:
+                original_source_data = source_message.result
+            
+            # Créer message de sortie avec le texte normalisé
+            # Préserver l'original_client_id pour le routage WebSocket
+            new_metadata = {
+                "source": self.name,
+                "original_data": original_source_data,
+                "is_last_phrase": is_last_phrase  # 🎯 MÉTADONNÉE CLÉ pour le TTS
+            }
+            
+            if hasattr(source_message, 'metadata') and source_message.metadata:
+                # Préserver l'original_client_id du message source
+                if 'original_client_id' in source_message.metadata:
+                    new_metadata['original_client_id'] = source_message.metadata['original_client_id']
+            
+            output_message = Message(
+                type=source_message.type,
+                data=normalized,
+                metadata=new_metadata
+            )
+            
+            self.output_queue.enqueue(output_message)
+        
+        except Exception as e:
+            logger.error(f"Erreur envoi phrase normalisée: {e}")
     
     def _add_chunk(self, chunk: str) -> list:
         """

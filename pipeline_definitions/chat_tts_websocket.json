@@ -1,6 +1,6 @@
 {
   "id": "chat_tts_websocket",
-  "name": "Pipeline Chat TTS WebSocket", 
+  "name": "Pipeline Chat TTS WebSocket",
   "description": "Pipeline de chat avec streaming texte ET génération audio via TTS",
   "version": "1.0.0",
   "step_instances": [
@@ -16,8 +16,20 @@
       "step_definition": "websocket_server",
       "config_overrides": {
         "port": 8769,
-        "mode": "text_to_text"
+        "mode": "audio_text_to_text_audio",
+        "audio_format": "pcm16",
+        "sample_rate": 24000
       }
+    },
+    {
+      "instance_id": "asr_step",
+      "step_definition": "Kyutai ASR Step",
+      "config_overrides": {}
+    },
+    {
+      "instance_id": "asr_duplicator",
+      "step_definition": "Duplicator Step",
+      "config_overrides": {}
     },
     {
       "instance_id": "openai_chat",
@@ -49,7 +61,15 @@
     },
     {
       "from": "websocket_server",
-      "to": "openai_chat"
+      "to": "asr_step"
+    },
+    {
+      "from": "asr_step",
+      "to": "asr_duplicator"
+    },
+    {
+      "from": "asr_duplicator",
+      "to": ["websocket_server", "openai_chat"]
     },
     {
       "from": "openai_chat",
@@ -57,7 +77,7 @@
     },
     {
       "from": "duplicator",
-      "to": ["websocket_server", "sentence_normalizer"]
+      "to": ["websocket_server", "sentence_normalizer", "tts_step"]
     },
     {
       "from": "sentence_normalizer",

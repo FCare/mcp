@@ -4,6 +4,8 @@
   "description": "ASR utilisant Kyutai STT (Moshi) pour transcription audio en temps réel",
   "category": "audio_processing",
   "version": "1.0.0",
+  "module_path": "steps.asr.kyutai_asr_step",
+  "class_name": "KyutaiASRStep",
   "inputs": {
     "type": "audio",
     "format": "binary",
