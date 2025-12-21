@@ -293,9 +293,25 @@ class SentenceNormalizerStep(PipelineStep):
         ordinal_pattern = r'(\s|^|[^\w])([MXVCI]+)(er|e|ème)(\s|$|[^\w])'
         text = re.sub(ordinal_pattern, replace_roman, text)
         
-        # Chiffres romains purs : "XIV" → "14"
+        # 🎯 Chiffres romains purs : "XIV" → "14"
+        # MAIS ignorer les contractions françaises comme "C'est"
+        def replace_roman_safe(match):
+            prefix = match.group(1)
+            roman = match.group(2)
+            suffix = match.group(3)
+            
+            # Si c'est une contraction avec apostrophe, ne pas convertir
+            if suffix.startswith("'"):
+                return match.group(0)  # Garder tel quel
+            
+            number = roman_to_int(roman)
+            if number is None or len(roman) > 7:
+                return match.group(0)
+            
+            return prefix + str(number) + suffix
+        
         pure_pattern = r'(\s|^|[^\w])([MXVCI]+)(\s|$|[^\w])'
-        text = re.sub(pure_pattern, replace_roman, text)
+        text = re.sub(pure_pattern, replace_roman_safe, text)
         
         return text
     
