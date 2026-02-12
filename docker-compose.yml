@@ -30,7 +30,7 @@ services:
       - joshua_temp:/app/temp
     
     networks:
-      - joshua-network
+      - ansible
     
     # Restart policy
     restart: unless-stopped
@@ -54,7 +54,7 @@ services:
       - joshua-backend
     
     networks:
-      - joshua-network
+      - ansible
     
     # Restart policy
     restart: unless-stopped
@@ -73,6 +73,6 @@ volumes:
     driver: local
 
 networks:
-  joshua-network:
+  ansible:
+    external: true
     driver: bridge
-    name: joshua-network
