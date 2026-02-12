@@ -442,7 +442,9 @@ class KyutaiASRStep(PipelineStep):
         
         self.host = config.get("host", "stt.kyutai.org") if config else "stt.kyutai.org"
         self.port = config.get("port", 443) if config else 443
-        self.api_key = config.get("api_key", "public_token") if config else "public_token"
+        self.api_key = config.get("api_key") if config else None
+        if not self.api_key:
+            self.api_key = os.getenv("ASR_API_KEY", "public_token")
         
         self.sample_rate = config.get("sample_rate", 24000) if config else 24000
         self.samples_per_frame = config.get("samples_per_frame", 1920) if config else 1920

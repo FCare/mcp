@@ -31,8 +31,8 @@
   "configuration": {
     "host": {
       "type": "string",
-      "default": "caronboulme.fr",
-      "description": "Serveur Kyutai STT local"
+      "default": "unmute-transcript.caronboulme.fr",
+      "description": "Serveur Kyutai STT"
     },
     "port": {
       "type": "integer",
@@ -41,8 +41,8 @@
     },
     "api_key": {
       "type": "string",
-      "default": "public_token",
-      "description": "Token d'authentification Kyutai"
+      "default": "your_asr_api_key_here",
+      "description": "Token d'authentification Kyutai (définir ASR_API_KEY dans .env)"
     },
     "sample_rate": {
       "type": "integer",

@@ -10,8 +10,13 @@
   "configuration": {
     "host": {
       "type": "string",
-      "default": "https://caronboulme.fr/chatterbox/speech",
+      "default": "https://chatterbox.caronboulme.fr/speech",
       "description": "URL API Chatterbox"
+    },
+    "api_key": {
+      "type": "string",
+      "default": "your_tts_api_key_here",
+      "description": "Clé API Chatterbox TTS (définir TTS_API_KEY dans .env)"
     },
     "voice": {
       "type": "string", 

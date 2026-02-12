@@ -1,6 +1,7 @@
 import time
 import threading
 import requests
+import os
 from typing import Optional, Dict, Any
 
 from pipeline_framework import PipelineStep
@@ -12,9 +13,14 @@ class ChatterboxTTSStep(PipelineStep):
     def __init__(self, name: str = "ChatterboxTTS", config: Optional[Dict] = None):
         super().__init__(name, config, handler=self._handle_input_message)
         
-        self.host = config.get("host", "https://caronboulme.fr/chatterbox/speech") if config else "https://caronboulme.fr/chatterbox/speech"
+        self.host = config.get("host", "https://chatterbox.caronboulme.fr/speech") if config else "https://chatterbox.caronboulme.fr/speech"
         self.voice = config.get("voice", "Fip4") if config else "Fip4"
         self.language_id = config.get("language_id", "fr") if config else "fr"
+        
+        # Configuration API Key
+        self.api_key = config.get("api_key") if config else None
+        if not self.api_key:
+            self.api_key = os.getenv("TTS_API_KEY")
         
         self.speed = config.get("speed", 1.0) if config else 1.0
         self.exaggeration = config.get("exaggeration", 0.5) if config else 0.5
@@ -28,6 +34,10 @@ class ChatterboxTTSStep(PipelineStep):
             "Content-Type": "application/json",
             "Accept": "audio/wav"
         }
+        
+        # Ajouter l'API Key aux headers si disponible
+        if self.api_key:
+            self.headers["Authorization"] = f"Bearer {self.api_key}"
         
         self.interrupted = False
         self._lock = threading.Lock()
