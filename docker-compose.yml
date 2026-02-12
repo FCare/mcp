@@ -28,6 +28,7 @@ services:
       # Logs et fichiers temporaires
       - joshua_logs:/app/logs
       - joshua_temp:/app/temp
+      - ./cache:/root/.cache    # Persiste le cache llama.cpp
     
     networks:
       - ansible
