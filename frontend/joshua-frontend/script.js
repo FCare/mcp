@@ -267,8 +267,30 @@ class JoshuaChat {
             throw new Error('WebSocket not connected');
         }
         
-        // Send text message to WebSocket
-        this.ws.send(text);
+        // ✅ Préparer le message avec texte et images
+        const message = {
+            type: 'user_message',
+            text: text
+        };
+        
+        // ✅ Ajouter les images si il y en a
+        if (this.uploadedFiles.length > 0) {
+            if (this.uploadedFiles.length === 1) {
+                // Une seule image : utiliser le champ "image"
+                message.image = this.uploadedFiles[0].data;
+            } else {
+                // Plusieurs images : utiliser le champ "images"
+                message.images = this.uploadedFiles.map(file => file.data);
+            }
+            
+            console.log(`Sending message with ${this.uploadedFiles.length} image(s)`);
+            
+            // ✅ Vider la liste après envoi
+            this.uploadedFiles = [];
+        }
+        
+        // ✅ Envoyer en JSON au lieu de texte brut
+        this.ws.send(JSON.stringify(message));
         
         // Create assistant message placeholder for response
         this.currentAssistantDiv = this.addMessage('', 'assistant');
@@ -291,17 +313,21 @@ class JoshuaChat {
     processImageFile(file) {
         const reader = new FileReader();
         reader.onload = (e) => {
-            const imageData = e.target.result;
+            const imageData = e.target.result; // Garde le data URL complet !
             
-            // Add to uploaded files for API
+            // Add to uploaded files for API - garder le data URL complet
             this.uploadedFiles.push({
-                data: imageData.replace(/data:image\/[^;]+;base64,/, ''),
+                data: imageData, // ✅ Garder le préfixe data:image/...;base64,
+                filename: file.name,
+                type: file.type,
                 id: this.uploadedFiles.length + 1
             });
             
             // Show image in chat
             const imgElement = `<img src="${imageData}" alt="Uploaded image" style="max-width: 200px; border-radius: 8px; margin: 8px 0;">`;
-            this.addMessage(`🖼️ Image uploaded:<br>${imgElement}`, 'user');
+            this.addMessage(`🖼️ Image uploaded: ${file.name}<br>${imgElement}`, 'user');
+            
+            console.log('Image uploaded:', file.name, 'Total images:', this.uploadedFiles.length);
         };
         reader.readAsDataURL(file);
     }
@@ -380,7 +406,8 @@ class JoshuaChat {
 
     updateSendButton() {
         const hasText = this.messageInput.value.trim().length > 0;
-        const canSend = hasText && !this.isGenerating && this.isConnected;
+        const hasImages = this.uploadedFiles.length > 0;
+        const canSend = (hasText || hasImages) && !this.isGenerating && this.isConnected;
         this.sendBtn.disabled = !canSend;
         
         // Update button title based on state
@@ -388,10 +415,23 @@ class JoshuaChat {
             this.sendBtn.title = 'Connecting to Joshua...';
         } else if (this.isGenerating) {
             this.sendBtn.title = 'Joshua is responding...';
-        } else if (!hasText) {
-            this.sendBtn.title = 'Type a message to send';
+        } else if (!hasText && !hasImages) {
+            this.sendBtn.title = 'Type a message or upload an image to send';
+        } else if (hasImages && !hasText) {
+            this.sendBtn.title = `Send ${this.uploadedFiles.length} image(s)`;
+        } else if (hasText && hasImages) {
+            this.sendBtn.title = `Send message with ${this.uploadedFiles.length} image(s)`;
         } else {
             this.sendBtn.title = 'Send message';
+        }
+        
+        // ✅ Mettre à jour le style du bouton si des images sont prêtes
+        if (hasImages) {
+            this.sendBtn.style.backgroundColor = '#10b981'; // Vert pour indiquer les images
+            this.sendBtn.innerHTML = hasText ? '📤' : '🖼️'; // Icône différente
+        } else {
+            this.sendBtn.style.backgroundColor = ''; // Couleur par défaut
+            this.sendBtn.innerHTML = '➤'; // Icône normale
         }
     }
 
