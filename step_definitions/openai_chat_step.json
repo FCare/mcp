@@ -5,31 +5,39 @@
     "class_name": "OpenAIChatStep",
     "module_path": "steps.chat.openai_chat_step",
     "default_config": {
-        "model": "gpt-4o-mini",
+        "provider": "llamacpp",
+        "endpoint": "https://thebrain.caronboulme.fr",
+        "model": "qwen3-vl-8b-instruct",
         "temperature": 0.7,
-        "max_tokens": 1000
+        "max_tokens": 2048
     },
     "config_schema": {
         "type": "object",
         "properties": {
+            "provider": {
+                "type": "string",
+                "enum": ["azure", "llamacpp"],
+                "default": "llamacpp",
+                "description": "Provider LLM (llamacpp pour serveur Llama.cpp, azure pour Azure OpenAI)"
+            },
             "api_key": {
                 "type": "string",
                 "description": "Azure OpenAI API key (can also be set via OPENAI_API_KEY env var)"
             },
             "endpoint": {
                 "type": "string",
-                "description": "Azure OpenAI endpoint URL",
-                "default": "https://amsuie-superreno-azure-openai.cognitiveservices.azure.com"
+                "description": "Endpoint URL (Llama.cpp server ou Azure OpenAI)",
+                "default": "https://thebrain.caronboulme.fr"
             },
             "api_version": {
                 "type": "string",
-                "description": "Azure OpenAI API version",
+                "description": "API version (pour Azure OpenAI uniquement)",
                 "default": "2025-01-01-preview"
             },
             "model": {
                 "type": "string",
-                "description": "Azure OpenAI model to use",
-                "default": "gpt-4o-mini"
+                "description": "Modèle à utiliser (qwen3-vl-8b-instruct pour Llama.cpp ou gpt-4o-mini pour Azure)",
+                "default": "qwen3-vl-8b-instruct"
             },
             "temperature": {
                 "type": "number",

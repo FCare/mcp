@@ -100,10 +100,15 @@ class OpenAIChatStep(PipelineStep):
         if OPENAI_DEPENDENCIES_AVAILABLE and dotenv:
             dotenv.load_dotenv()
         
-        # Configuration OpenAI
+        # Configuration des clés API
         self.api_key = config.get("api_key") if config else None
         if not self.api_key:
-            self.api_key = os.getenv("OPENAI_API_KEY")
+            # Essayer d'abord la variable spécifique au provider
+            provider = config.get("provider", "azure") if config else "azure"
+            if provider == "llamacpp":
+                self.api_key = os.getenv("LLAMACPP_API_KEY")
+            else:
+                self.api_key = os.getenv("OPENAI_API_KEY")
         
         self.model = config.get("model", "gpt-4o-mini") if config else "gpt-4o-mini"
         self.temperature = config.get("temperature", 0.7) if config else 0.7
@@ -130,17 +135,28 @@ class OpenAIChatStep(PipelineStep):
                 logger.error("OpenAI API key non trouvée")
                 return False
             
-            # Configuration pour Azure OpenAI
-            azure_endpoint = self.config.get("endpoint", "https://amsuie-superreno-azure-openai.cognitiveservices.azure.com")
-            api_version = self.config.get("api_version", "2025-01-01-preview")
+            # Utilise directement self.config (déjà fusionné : default_config + config_overrides)
+            provider = self.config.get("provider")  # Pas de défaut ici, défini dans le JSON
+            endpoint = self.config.get("endpoint")
             
-            self.client = openai.AzureOpenAI(
-                api_key=self.api_key,
-                azure_endpoint=azure_endpoint,
-                api_version=api_version
-            )
-            
-            print(f"OpenAI Chat initialisé avec succès")
+            if provider == "llamacpp":
+                # Configuration Llama.cpp (Qwen3 VL 8B Instruct)
+                self.client = openai.OpenAI(
+                    api_key=self.api_key,
+                    base_url=endpoint
+                )
+                print(f"Llama.cpp (Qwen3 VL 8B) initialisé - endpoint: {endpoint}, modèle: {self.model}")
+            elif provider == "azure":
+                # Configuration Azure OpenAI
+                api_version = self.config.get("api_version")
+                self.client = openai.AzureOpenAI(
+                    api_key=self.api_key,
+                    azure_endpoint=endpoint,
+                    api_version=api_version
+                )
+                print(f"Azure OpenAI initialisé - endpoint: {endpoint}, modèle: {self.model}")
+            else:
+                raise ValueError(f"Provider non supporté: {provider}")
             return True
             
         except Exception as e:

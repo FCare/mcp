@@ -8,7 +8,7 @@
       "instance_id": "system_prompt",
       "step_definition": "System Prompt Step",
       "config_overrides": {
-        "prompt_template": "Tu es un assistant virtuel intelligent et utile. Tu réponds de manière concise et claire."
+        "prompt_template": "Tu es un assistant virtuel intelligent utilisant Qwen3 VL 8B Instruct. Tu réponds de manière concise et claire en français."
       }
     },
     {

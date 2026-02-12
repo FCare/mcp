@@ -16,7 +16,7 @@
             "step_definition": "OpenAI Chat Step",
             "config_overrides": {
                 "max_tokens": 1500,
-                "system_prompt": "You are a helpful and friendly assistant. Provide clear, concise, and engaging responses."
+                "system_prompt": "Tu es un assistant virtuel intelligent utilisant Qwen3 VL 8B. Tu réponds de manière claire, concise et engageante en français."
             }
         }
     ],
