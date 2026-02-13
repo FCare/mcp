@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - Icône de copie API Key</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            color: #1f2937;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .api-keys-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .api-keys-table th {
+            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+            padding: 16px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            font-size: 0.875rem;
+        }
+
+        .api-keys-table td {
+            padding: 16px 12px;
+            border-top: 1px solid #f3f4f6;
+            font-size: 0.875rem;
+        }
+
+        .api-key-value {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            max-width: 250px;
+        }
+
+        .api-key-value span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .copy-api-key-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            color: #6b7280;
+            flex-shrink: 0;
+        }
+
+        .copy-api-key-btn:hover {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .copy-api-key-btn:active {
+            transform: scale(0.95);
+        }
+
+        .copy-api-key-btn.copied {
+            color: #059669;
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            color: #059669;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0 4px;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
+            color: #dc2626;
+            border: 1px solid #f87171;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test - Icône de copie des clés API</h1>
+        <p>Cette page teste la fonctionnalité de copie des clés API.</p>
+
+        <table class="api-keys-table">
+            <thead>
+                <tr>
+                    <th>Nom</th>
+                    <th>Clé API</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>joshua asr</strong></td>
+                    <td>
+                        <div class="api-key-value" title="MLoyLDDfM0lyHvve0Hvu123456789">
+                            <span>MLoyLDDfM0lyHvve0Hvu...</span>
+                            <button class="copy-api-key-btn" onclick="copyToClipboard('MLoyLDDfM0lyHvve0Hvu123456789', this)" title="Copier la clé API">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="status-badge status-active">Actif</span>
+                    </td>
+                    <td>
+                        <button class="btn btn-secondary">Désactiver</button>
+                        <button class="btn btn-danger">Supprimer</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>joshua brain</strong></td>
+                    <td>
+                        <div class="api-key-value" title="r9efp8Mr_RinfZxCLS56789123456">
+                            <span>r9efp8Mr_RinfZxCLS5...</span>
+                            <button class="copy-api-key-btn" onclick="copyToClipboard('r9efp8Mr_RinfZxCLS56789123456', this)" title="Copier la clé API">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="status-badge status-active">Actif</span>
+                    </td>
+                    <td>
+                        <button class="btn btn-secondary">Désactiver</button>
+                        <button class="btn btn-danger">Supprimer</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div style="margin-top: 20px; padding: 15px; background: #f0f9ff; border-radius: 8px; border: 1px solid #0ea5e9;">
+            <p><strong>Instructions:</strong></p>
+            <p>Cliquez sur l'icône 📋 à côté d'une clé API pour la copier dans le presse-papier.</p>
+            <p>L'icône deviendra verte avec une coche ✅ pendant 2 secondes pour confirmer la copie.</p>
+        </div>
+    </div>
+
+    <script>
+        async function copyToClipboard(text, button) {
+            try {
+                await navigator.clipboard.writeText(text);
+                
+                // Feedback visuel
+                const originalIcon = button.innerHTML;
+                const originalTitle = button.title;
+                
+                // Icône de succès
+                button.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20,6 9,17 4,12"/>
+                    </svg>
+                `;
+                button.title = "Copié !";
+                button.classList.add('copied');
+                
+                // Remettre l'icône originale après 2 secondes
+                setTimeout(() => {
+                    button.innerHTML = originalIcon;
+                    button.title = originalTitle;
+                    button.classList.remove('copied');
+                }, 2000);
+                
+                // Notification facultative
+                console.log('Clé copiée:', text);
+                
+            } catch (err) {
+                console.error('Échec de la copie:', err);
+                // Fallback pour les navigateurs plus anciens
+                fallbackCopyToClipboard(text, button);
+            }
+        }
+
+        function fallbackCopyToClipboard(text, button) {
+            // Créer un élément temporaire pour la sélection
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                
+                // Feedback visuel
+                const originalIcon = button.innerHTML;
+                const originalTitle = button.title;
+                
+                button.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20,6 9,17 4,12"/>
+                    </svg>
+                `;
+                button.title = "Copié !";
+                button.classList.add('copied');
+                
+                setTimeout(() => {
+                    button.innerHTML = originalIcon;
+                    button.title = originalTitle;
+                    button.classList.remove('copied');
+                }, 2000);
+                
+                console.log('Clé copiée (fallback):', text);
+                
+            } catch (err) {
+                console.error('Fallback copy failed:', err);
+                button.title = "Échec de la copie";
+                setTimeout(() => {
+                    button.title = "Copier la clé API";
+                }, 2000);
+            } finally {
+                document.body.removeChild(textArea);
+            }
+        }
+    </script>
+</body>
+</html>

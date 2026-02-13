@@ -611,7 +611,7 @@
                                 </button>
                             </div>
                         </td>
-                        <td>${key.scopes.join(', ')}</td>
+                        <td>${[...new Set(key.scopes)].join(', ')}</td>
                         <td>
                             <span class="status-badge ${key.is_active ? 'status-active' : 'status-inactive'}">
                                 ${key.is_active ? 'Actif' : 'Inactif'}
