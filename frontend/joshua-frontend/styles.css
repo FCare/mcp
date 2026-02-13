@@ -440,34 +440,49 @@ kbd {
 }
 
 /* Audio Interface */
-.audio-visualizer {
-    background: transparent;
-    border-radius: 8px;
-    padding: 8px 16px;
-    margin-bottom: 8px;
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-}
-
 .visualizer-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.visualizer-container.active {
+    opacity: 1;
+}
+
+.left-visualizer {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+}
+
+.right-visualizer {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
 }
 
 .visualizer-label {
     color: #9ca3af;
-    font-size: 10px;
+    font-size: 8px;
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    margin-bottom: 2px;
 }
 
 #input-visualizer, #output-visualizer {
     border-radius: 4px;
     background: transparent;
+    opacity: 0.3;
+    transition: opacity 0.1s ease;
 }
 
 /* Microphone Button */
@@ -538,15 +553,21 @@ kbd {
 
 /* Responsive Audio Interface */
 @media (max-width: 768px) {
-    .audio-visualizer {
-        flex-direction: column;
-        gap: 12px;
-        padding: 12px;
+    .left-visualizer {
+        left: 8px;
     }
     
-    .visualizer-container canvas {
-        width: 200px;
-        height: 30px;
+    .right-visualizer {
+        right: 8px;
+    }
+    
+    #input-visualizer, #output-visualizer {
+        width: 100px;
+        height: 25px;
+    }
+    
+    .visualizer-label {
+        font-size: 7px;
     }
     
     .mic-btn {

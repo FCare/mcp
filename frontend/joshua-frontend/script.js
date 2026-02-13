@@ -64,7 +64,8 @@ class JoshuaChat {
         
         // Audio elements
         this.micBtn = document.getElementById('mic-btn');
-        this.audioVisualizer = document.getElementById('audio-visualizer');
+        this.inputVisualizerContainer = document.getElementById('input-visualizer-container');
+        this.outputVisualizerContainer = document.getElementById('output-visualizer-container');
         this.inputVisualizer = document.getElementById('input-visualizer');
         this.outputVisualizer = document.getElementById('output-visualizer');
     }
@@ -649,7 +650,10 @@ class JoshuaChat {
             this.setupAudioAnalysis();
 
             this.isAudioEnabled = true;
-            this.audioVisualizer.style.display = 'block';
+            this.inputVisualizerContainer.style.display = 'block';
+            this.outputVisualizerContainer.style.display = 'block';
+            this.inputVisualizerContainer.classList.add('active');
+            this.outputVisualizerContainer.classList.add('active');
             
             console.log('🎙️ Audio initialized successfully');
         } catch (error) {
@@ -847,27 +851,29 @@ class JoshuaChat {
             
             this.inputAnalyser.getByteFrequencyData(dataArray);
 
-            // Clear canvas with dark background
-            ctx.fillStyle = 'rgba(26, 26, 26, 0.3)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Clear canvas with transparent background
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw fewer bars (8-10) with gray gradient
-            const barCount = 8;
+            // Draw fewer bars with transparency animation
+            const barCount = 6;
             const barWidth = canvas.width / barCount;
             const dataStep = Math.floor(bufferLength / barCount);
 
             for (let i = 0; i < barCount; i++) {
                 const dataIndex = i * dataStep;
                 let barHeight = (dataArray[dataIndex] / 255) * canvas.height;
-                barHeight = Math.max(2, barHeight);
+                barHeight = Math.max(1, barHeight);
 
-                // Gray gradient based on height
+                // Transparency based on intensity: low level = low opacity, high level = opaque
                 const intensity = barHeight / canvas.height;
-                const grayValue = Math.floor(100 + intensity * 155); // 100-255 gray range
-                ctx.fillStyle = `rgb(${grayValue}, ${grayValue}, ${grayValue})`;
+                const opacity = Math.max(0.1, intensity); // minimum 0.1 opacity
                 
-                const x = i * barWidth + 2;
-                ctx.fillRect(x, canvas.height - barHeight, barWidth - 4, barHeight);
+                // Gray bars with varying opacity
+                ctx.fillStyle = `rgba(120, 120, 120, ${opacity})`;
+                
+                const x = i * barWidth + 1;
+                const barWidthAdjusted = barWidth - 2;
+                ctx.fillRect(x, canvas.height - barHeight, barWidthAdjusted, barHeight);
             }
 
             this.animationFrames.input = requestAnimationFrame(drawInput);
@@ -886,27 +892,29 @@ class JoshuaChat {
             
             this.outputAnalyser.getByteFrequencyData(dataArray);
 
-            // Clear canvas with dark background
-            ctx.fillStyle = 'rgba(26, 26, 26, 0.3)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Clear canvas with transparent background
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw fewer bars (8-10) with gray gradient
-            const barCount = 8;
+            // Draw fewer bars with transparency animation
+            const barCount = 6;
             const barWidth = canvas.width / barCount;
             const dataStep = Math.floor(bufferLength / barCount);
 
             for (let i = 0; i < barCount; i++) {
                 const dataIndex = i * dataStep;
                 let barHeight = (dataArray[dataIndex] / 255) * canvas.height;
-                barHeight = Math.max(2, barHeight);
+                barHeight = Math.max(1, barHeight);
 
-                // Gray gradient based on height
+                // Transparency based on intensity: low level = low opacity, high level = opaque
                 const intensity = barHeight / canvas.height;
-                const grayValue = Math.floor(100 + intensity * 155); // 100-255 gray range
-                ctx.fillStyle = `rgb(${grayValue}, ${grayValue}, ${grayValue})`;
+                const opacity = Math.max(0.1, intensity); // minimum 0.1 opacity
                 
-                const x = i * barWidth + 2;
-                ctx.fillRect(x, canvas.height - barHeight, barWidth - 4, barHeight);
+                // Gray bars with varying opacity
+                ctx.fillStyle = `rgba(120, 120, 120, ${opacity})`;
+                
+                const x = i * barWidth + 1;
+                const barWidthAdjusted = barWidth - 2;
+                ctx.fillRect(x, canvas.height - barHeight, barWidthAdjusted, barHeight);
             }
 
             this.animationFrames.output = requestAnimationFrame(drawOutput);
@@ -947,7 +955,14 @@ class JoshuaChat {
         // Reset audio state
         this.isAudioEnabled = false;
         this.isRecording = false;
-        this.audioVisualizer.style.display = 'none';
+        if (this.inputVisualizerContainer) {
+            this.inputVisualizerContainer.style.display = 'none';
+            this.inputVisualizerContainer.classList.remove('active');
+        }
+        if (this.outputVisualizerContainer) {
+            this.outputVisualizerContainer.style.display = 'none';
+            this.outputVisualizerContainer.classList.remove('active');
+        }
         
         console.log('🎙️ Audio cleanup completed');
     }
