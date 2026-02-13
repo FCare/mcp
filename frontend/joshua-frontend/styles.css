@@ -563,8 +563,8 @@ kbd {
     }
     
     #input-visualizer, #output-visualizer {
-        width: 80px;
-        height: 20px;
+        width: 70px;
+        height: 16px;
     }
     
     .visualizer-label {
