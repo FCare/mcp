@@ -46,6 +46,7 @@ class JoshuaChat {
         this.subtitle = document.querySelector('.subtitle');
         this.authBtn = document.getElementById('auth-btn');
         this.authText = document.getElementById('auth-text');
+        this.logoutBtn = document.getElementById('logout-btn');
     }
 
     bindEvents() {
@@ -82,6 +83,11 @@ class JoshuaChat {
             } else {
                 this.redirectToLogin();
             }
+        });
+
+        // Logout button
+        this.logoutBtn.addEventListener('click', () => {
+            this.logout();
         });
 
         // Initial send button state
@@ -520,10 +526,12 @@ class JoshuaChat {
     updateAuthUI() {
         if (this.isAuthenticated && this.currentUser) {
             this.authBtn.style.display = 'flex';
+            this.logoutBtn.style.display = 'flex';
             this.authText.textContent = this.currentUser;
             this.subtitle.textContent = `Bienvenue, ${this.currentUser} ! Tapez votre message pour commencer.`;
         } else {
             this.authBtn.style.display = 'none';
+            this.logoutBtn.style.display = 'none';
             this.subtitle.textContent = 'Connexion requise pour utiliser Joshua';
         }
     }
