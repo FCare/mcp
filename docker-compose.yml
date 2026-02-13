@@ -9,7 +9,7 @@ services:
     environment:
       # Configuration du pipeline
       - PIPELINE_NAME=${PIPELINE_NAME:-Pipeline Chat WebSocket}
-      - WEBSOCKET_PORT=${WEBSOCKET_PORT:-8768}
+      - WEBSOCKET_PORT=${WEBSOCKET_PORT:-8769}
       
       # Clés API
       - OPENAI_API_KEY=${OPENAI_API_KEY}
@@ -22,7 +22,7 @@ services:
       - PYTHONUNBUFFERED=1
       
     ports:
-      - "${WEBSOCKET_PORT:-8768}:${WEBSOCKET_PORT:-8768}"
+      - "${WEBSOCKET_PORT:-8769}:${WEBSOCKET_PORT:-8769}"
     
     volumes:
       # Logs et fichiers temporaires

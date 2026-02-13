@@ -8,7 +8,7 @@ echo "================================================"
 
 # Variables d'environnement avec valeurs par défaut
 PIPELINE_NAME="${PIPELINE_NAME:-Pipeline Chat WebSocket}"
-WEBSOCKET_PORT="${WEBSOCKET_PORT:-8768}"
+WEBSOCKET_PORT="${WEBSOCKET_PORT:-8769}"
 
 echo "📋 Pipeline sélectionné: $PIPELINE_NAME"
 echo "🌐 Port WebSocket: $WEBSOCKET_PORT"

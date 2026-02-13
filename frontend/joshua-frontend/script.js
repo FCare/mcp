@@ -47,9 +47,9 @@ class JoshuaChat {
     }
 
     getWebSocketUrl() {
-        // WebSocket via same-origin avec authentification par cookie automatique
-        // assistant.caronboulme.fr/joshua → Traefik → middleware vk_hybrid → backend Joshua
-        return `wss://assistant.caronboulme.fr/joshua`;
+        // WebSocket direct vers le backend Joshua (bypass Traefik pour WebSocket pur)
+        // WebSocket servers purs ne peuvent pas être routés par Traefik
+        return `wss://joshua.caronboulme.fr`;
     }
 
     initElements() {

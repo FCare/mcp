@@ -23,11 +23,11 @@ COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 # Exposer le port (sera configuré dynamiquement)
-EXPOSE ${WEBSOCKET_PORT:-8768}
+EXPOSE ${WEBSOCKET_PORT:-8769}
 
 # Variables d'environnement par défaut
 ENV PIPELINE_NAME="Pipeline Chat WebSocket"
-ENV WEBSOCKET_PORT=8768
+ENV WEBSOCKET_PORT=8769
 
 # Point d'entrée
 ENTRYPOINT ["/docker-entrypoint.sh"]
