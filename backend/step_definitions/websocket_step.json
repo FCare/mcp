@@ -55,7 +55,7 @@
       "values": ["audio_to_text", "text_to_audio"]
     }
   },
-  "example_config": {
+  "default_config": {
     "host": "0.0.0.0",
     "port": 8769,
     "mode": "audio_to_text",

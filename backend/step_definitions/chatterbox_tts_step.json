@@ -39,7 +39,7 @@
       "description": "Mode qualité"
     }
   },
-  "example_config": {
+  "default_config": {
     "host": "https://caronboulme.fr/chatterbox/speech",
     "voice": "Fip4",
     "language_id": "fr",

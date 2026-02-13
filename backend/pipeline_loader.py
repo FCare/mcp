@@ -160,8 +160,6 @@ class PipelineLoader:
         default_config = {}
         if "default_config" in step_definition:
             default_config = step_definition["default_config"].copy()
-        elif "example_config" in step_definition:
-            default_config = step_definition["example_config"].copy()
         elif "configuration" in step_definition:
             # Extraire les valeurs par défaut du schéma de configuration
             config_schema = step_definition["configuration"]
