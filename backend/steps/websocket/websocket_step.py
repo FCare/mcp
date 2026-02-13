@@ -4,6 +4,7 @@ import logging
 import threading
 import time
 import base64
+import aiohttp
 from typing import Optional, Dict, Any
 
 from pipeline_framework import PipelineStep
@@ -185,7 +186,38 @@ class WebSocketStep(PipelineStep):
         if self.server_thread and self.server_thread.is_alive():
             self.server_thread.join(timeout=2.0)
     
-    async def websocket_handler(self, websocket):
+    async def verify_authentication(self, websocket_request):
+        """Vérifie l'authentification en appelant Voight-Kampff directement"""
+        try:
+            # Extraire les cookies de la requête WebSocket
+            cookie_header = websocket_request.headers.get('Cookie', '')
+            if not cookie_header:
+                logger.warning("No cookies in WebSocket request")
+                return False, None
+            
+            # Appeler l'endpoint /verify de Voight-Kampff
+            async with aiohttp.ClientSession() as session:
+                headers = {'Cookie': cookie_header}
+                async with session.get('http://voight-kampff:8080/verify', headers=headers) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        username = data.get('user')
+                        logger.info(f"WebSocket authentication successful for user: {username}")
+                        return True, username
+                    else:
+                        logger.warning(f"WebSocket authentication failed: {response.status}")
+                        return False, None
+        except Exception as e:
+            logger.error(f"Error verifying WebSocket authentication: {e}")
+            return False, None
+    
+    async def websocket_handler(self, websocket, path=None):
+        # Vérifier l'authentification avant d'accepter la connexion
+        is_authenticated, username = await self.verify_authentication(websocket.request)
+        if not is_authenticated:
+            logger.warning("WebSocket connection rejected: authentication failed")
+            await websocket.close(code=4001, reason="Authentication required")
+            return
         client_id = f"client_{id(websocket)}"
         self.connections[client_id] = websocket
         
