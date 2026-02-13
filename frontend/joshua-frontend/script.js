@@ -876,11 +876,24 @@ class JoshuaChat {
         this.outputAnalyser.fftSize = 256;
         this.outputAnalyser.smoothingTimeConstant = 0.8;
         
-        // Connect directly: audioProcessor -> outputAnalyser -> destination
-        this.audioProcessor.connect(this.outputAnalyser);
+        // Créer un GainNode intermédiaire pour s'assurer que l'audio passe par le graph
+        this.outputGain = this.audioContext.createGain();
+        this.outputGain.gain.value = 1.0;
+        
+        // Connect: audioProcessor -> outputGain -> outputAnalyser -> destination
+        this.audioProcessor.connect(this.outputGain);
+        this.outputGain.connect(this.outputAnalyser);
         this.outputAnalyser.connect(this.audioContext.destination);
         
-        console.log('🔊 Audio output setup completed for TTS');
+        // Ajouter un oscillateur silencieux pour "priming" le graph audio
+        this.primeOscillator = this.audioContext.createOscillator();
+        this.primeGain = this.audioContext.createGain();
+        this.primeGain.gain.value = 0; // Silencieux
+        this.primeOscillator.connect(this.primeGain);
+        this.primeGain.connect(this.audioProcessor);
+        this.primeOscillator.start();
+        
+        console.log('🔊 Audio output setup completed for TTS with primed graph');
     }
 
     setupAudioAnalysis() {
