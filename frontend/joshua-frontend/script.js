@@ -645,8 +645,22 @@ class JoshuaChat {
             }
 
             // Load AudioWorklet modules
-            await this.audioContext.audioWorklet.addModule('./joshua-mic-processor.js');
-            await this.audioContext.audioWorklet.addModule('./joshua-audio-processor.js');
+            console.log('🔧 Loading AudioWorklet modules...');
+            try {
+                await this.audioContext.audioWorklet.addModule('./joshua-mic-processor.js');
+                console.log('✅ joshua-mic-processor.js loaded');
+            } catch (modError) {
+                console.error('❌ Failed to load joshua-mic-processor.js:', modError);
+                throw new Error(`Failed to load microphone processor: ${modError.message}`);
+            }
+            
+            try {
+                await this.audioContext.audioWorklet.addModule('./joshua-audio-processor.js');
+                console.log('✅ joshua-audio-processor.js loaded');
+            } catch (modError) {
+                console.error('❌ Failed to load joshua-audio-processor.js:', modError);
+                throw new Error(`Failed to load audio processor: ${modError.message}`);
+            }
 
             // Setup microphone input
             await this.setupMicrophoneInput();
@@ -679,7 +693,11 @@ class JoshuaChat {
                 errorMessage = 'Microphone access requires HTTPS. Please access the site via https://';
             }
             
-            alert(errorMessage);
+            console.error('🎙️ Audio initialization error:', errorMessage);
+            
+            // Afficher l'erreur de façon discrète dans le titre du bouton micro
+            this.micBtn.title = errorMessage.split('\n')[0]; // Première ligne seulement
+            this.micBtn.style.color = '#ef4444'; // Rouge pour indiquer l'erreur
         }
     }
 
@@ -952,6 +970,27 @@ class JoshuaChat {
         // Stop visualizations
         this.stopAudioVisualization();
         
+        // Disconnect and clear AudioNodes references
+        if (this.micProcessor) {
+            this.micProcessor.disconnect();
+            this.micProcessor = null;
+        }
+        
+        if (this.audioProcessor) {
+            this.audioProcessor.disconnect();
+            this.audioProcessor = null;
+        }
+        
+        if (this.inputAnalyser) {
+            this.inputAnalyser.disconnect();
+            this.inputAnalyser = null;
+        }
+        
+        if (this.outputAnalyser) {
+            this.outputAnalyser.disconnect();
+            this.outputAnalyser = null;
+        }
+        
         // Close audio context
         if (this.audioContext) {
             this.audioContext.close();
@@ -978,8 +1017,10 @@ class JoshuaChat {
             this.outputVisualizerContainer.classList.remove('active');
         }
         
-        // Reset microphone button to inactive state
+        // Reset microphone button to inactive state and color
         this.micBtn.classList.remove('recording', 'listening');
+        this.micBtn.style.color = ''; // Reset color
+        this.micBtn.title = 'Voice input'; // Reset title
         
         console.log('🎙️ Audio cleanup completed');
     }
