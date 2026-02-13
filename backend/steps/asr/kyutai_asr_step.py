@@ -454,8 +454,10 @@ class KyutaiASRStep(PipelineStep):
         self.host = config.get("host", "stt.kyutai.org") if config else "stt.kyutai.org"
         self.port = config.get("port", 443) if config else 443
         self.api_key = config.get("api_key") if config else None
+        print(f"DEBUG: config.get('api_key') = {repr(self.api_key)}")
         if not self.api_key:
             self.api_key = os.getenv("ASR_API_KEY", "public_token")
+            print(f"DEBUG: os.getenv('ASR_API_KEY') = {repr(self.api_key)}")
         
         self.sample_rate = config.get("sample_rate", 24000) if config else 24000
         self.samples_per_frame = config.get("samples_per_frame", 1920) if config else 1920
@@ -469,6 +471,7 @@ class KyutaiASRStep(PipelineStep):
         
         
         print(f"KyutaiASRStep '{self.name}' configuré pour {self.host}")
+        print(f"ASR API key: {self.api_key[:10]}...{self.api_key[-10:] if self.api_key and len(self.api_key) > 20 else self.api_key}")
     
     def init(self) -> bool:
         """Initialise l'ASR Kyutai"""
