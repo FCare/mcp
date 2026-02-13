@@ -281,7 +281,8 @@ class JoshuaChat {
                 case 'chat_finished':
                     console.log('Chat response finished');
                     this.setGenerating(false);
-                    break;
+                    // Ne pas afficher ce message dans l'interface
+                    return; // Sortir immédiatement sans traitement supplémentaire
                     
                 default:
                     console.log('Unknown message type:', message.type, message);
