@@ -210,13 +210,18 @@
             padding: 6px 10px;
             border-radius: 6px;
             font-size: 0.8rem;
-            max-width: 200px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
             display: flex;
             align-items: center;
             gap: 8px;
+            max-width: 250px;
+        }
+
+        .api-key-value span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            min-width: 0;
         }
 
         .copy-api-key-btn {
