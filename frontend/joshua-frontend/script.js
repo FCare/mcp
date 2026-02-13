@@ -311,6 +311,11 @@ class JoshuaChat {
         const text = message.text || message.content || '';
         const metadata = message.metadata || {};
         
+        // Filtrer les messages JSON techniques qui ne doivent pas être affichés
+        if (this.isSystemMessage(text)) {
+            return; // Ne pas afficher les messages système/technique
+        }
+        
         if (!this.currentAssistantDiv) {
             this.currentAssistantDiv = this.addMessage('', 'assistant');
             this.currentResponse = '';
@@ -326,6 +331,28 @@ class JoshuaChat {
             this.currentAssistantDiv = null;
             this.currentResponse = '';
         }
+    }
+    
+    isSystemMessage(text) {
+        // Détecter les messages JSON techniques qui ne doivent pas être affichés
+        if (typeof text !== 'string') return false;
+        
+        const trimmedText = text.trim();
+        
+        // Détecter les messages JSON qui commencent par {"type":
+        if (trimmedText.startsWith('{"type":')) {
+            try {
+                const parsed = JSON.parse(trimmedText);
+                // Filtrer les messages système spécifiques
+                if (parsed.type && ['audio_finished', 'chat_finished', 'audio_chunk'].includes(parsed.type)) {
+                    return true;
+                }
+            } catch (e) {
+                // Si ce n'est pas du JSON valide, laisser passer
+            }
+        }
+        
+        return false;
     }
 
     handleTranscription(message) {
