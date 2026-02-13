@@ -335,9 +335,155 @@
             }
 
             showRegisterForm() {
-                // For now, show a message - registration form could be implemented later
+                // Replace login form with registration form
+                const formContainer = document.querySelector('.login-container');
+                formContainer.innerHTML = `
+                    <div class="login-card">
+                        <div class="login-header">
+                            <h1>Créer un compte</h1>
+                            <p>Rejoignez Joshua Assistant</p>
+                        </div>
+
+                        <div id="error-message" class="error-message" style="display: none;"></div>
+                        <div id="success-message" class="success-message" style="display: none;"></div>
+
+                        <form id="register-form" class="login-form">
+                            <div class="form-group">
+                                <label for="reg-username">Nom d'utilisateur</label>
+                                <input
+                                    type="text"
+                                    id="reg-username"
+                                    name="username"
+                                    class="login-input"
+                                    required
+                                    autocomplete="username"
+                                    placeholder="Votre nom d'utilisateur"
+                                >
+                            </div>
+
+                            <div class="form-group">
+                                <label for="reg-email">Email</label>
+                                <input
+                                    type="email"
+                                    id="reg-email"
+                                    name="email"
+                                    class="login-input"
+                                    required
+                                    autocomplete="email"
+                                    placeholder="votre@email.com"
+                                >
+                            </div>
+
+                            <div class="form-group">
+                                <label for="reg-password">Mot de passe</label>
+                                <input
+                                    type="password"
+                                    id="reg-password"
+                                    name="password"
+                                    class="login-input"
+                                    required
+                                    autocomplete="new-password"
+                                    placeholder="••••••••"
+                                >
+                            </div>
+
+                            <div class="form-group">
+                                <label for="reg-password-confirm">Confirmer le mot de passe</label>
+                                <input
+                                    type="password"
+                                    id="reg-password-confirm"
+                                    name="password-confirm"
+                                    class="login-input"
+                                    required
+                                    autocomplete="new-password"
+                                    placeholder="••••••••"
+                                >
+                            </div>
+
+                            <button type="submit" id="register-btn" class="login-btn">
+                                Créer le compte
+                            </button>
+                        </form>
+
+                        <div class="register-link">
+                            <p><a href="#" id="back-to-login-link">Déjà un compte ? Se connecter</a></p>
+                        </div>
+                    </div>
+                `;
+
+                // Bind new form events
+                document.getElementById('register-form').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handleRegister();
+                });
+
+                document.getElementById('back-to-login-link').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    // Reload the page to show login form again
+                    window.location.reload();
+                });
+            }
+
+            async handleRegister() {
+                const username = document.getElementById('reg-username').value;
+                const email = document.getElementById('reg-email').value;
+                const password = document.getElementById('reg-password').value;
+                const passwordConfirm = document.getElementById('reg-password-confirm').value;
+                const registerBtn = document.getElementById('register-btn');
                 const errorDiv = document.getElementById('error-message');
-                this.showMessage(errorDiv, 'L\'inscription n\'est pas encore disponible. Contactez l\'administrateur.');
+                const successDiv = document.getElementById('success-message');
+
+                // Reset messages
+                this.hideMessage(errorDiv);
+                this.hideMessage(successDiv);
+
+                // Validate passwords match
+                if (password !== passwordConfirm) {
+                    this.showMessage(errorDiv, 'Les mots de passe ne correspondent pas.');
+                    return;
+                }
+
+                // Show loading state
+                this.setRegisterButtonLoading(registerBtn, true);
+
+                try {
+                    const formData = new FormData();
+                    formData.append('username', username);
+                    formData.append('email', email);
+                    formData.append('password', password);
+                    formData.append('password_confirm', passwordConfirm);
+
+                    const response = await fetch(`${this.apiBaseUrl}/auth/register`, {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'include'
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        this.showMessage(successDiv, data.message);
+                        // Disable form after successful registration
+                        document.getElementById('register-form').style.display = 'none';
+                    } else {
+                        this.showMessage(errorDiv, data.detail || data.message || 'Erreur lors de la création du compte.');
+                    }
+                } catch (error) {
+                    console.error('Register error:', error);
+                    this.showMessage(errorDiv, 'Erreur de réseau. Veuillez réessayer.');
+                } finally {
+                    this.setRegisterButtonLoading(registerBtn, false);
+                }
+            }
+
+            setRegisterButtonLoading(button, isLoading) {
+                if (isLoading) {
+                    button.disabled = true;
+                    button.innerHTML = '<div class="btn-loading"><div class="loading-spinner"></div>Création...</div>';
+                } else {
+                    button.disabled = false;
+                    button.innerHTML = 'Créer le compte';
+                }
             }
 
             setButtonLoading(button, isLoading) {
