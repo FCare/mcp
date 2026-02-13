@@ -214,6 +214,33 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .copy-api-key-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            color: #6b7280;
+            flex-shrink: 0;
+        }
+
+        .copy-api-key-btn:hover {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .copy-api-key-btn:active {
+            transform: scale(0.95);
+        }
+
+        .copy-api-key-btn.copied {
+            color: #059669;
         }
 
         .status-badge {
@@ -570,7 +597,13 @@
                         <td><strong>${key.key_name}</strong></td>
                         <td>
                             <div class="api-key-value" title="${key.api_key}">
-                                ${key.api_key.substring(0, 20)}...
+                                <span>${key.api_key.substring(0, 20)}...</span>
+                                <button class="copy-api-key-btn" onclick="joshuaProfile.copyToClipboard('${key.api_key}', this)" title="Copier la clé API">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                    </svg>
+                                </button>
                             </div>
                         </td>
                         <td>${key.scopes.join(', ')}</td>
@@ -991,6 +1024,80 @@
                     }
                 } catch (error) {
                     console.error('Error deleting key:', error);
+                }
+            }
+
+            async copyToClipboard(text, button) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    
+                    // Feedback visuel
+                    const originalIcon = button.innerHTML;
+                    const originalTitle = button.title;
+                    
+                    // Icône de succès
+                    button.innerHTML = `
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20,6 9,17 4,12"/>
+                        </svg>
+                    `;
+                    button.title = "Copié !";
+                    button.classList.add('copied');
+                    
+                    // Remettre l'icône originale après 2 secondes
+                    setTimeout(() => {
+                        button.innerHTML = originalIcon;
+                        button.title = originalTitle;
+                        button.classList.remove('copied');
+                    }, 2000);
+                    
+                } catch (err) {
+                    console.error('Échec de la copie:', err);
+                    // Fallback pour les navigateurs plus anciens
+                    this.fallbackCopyToClipboard(text, button);
+                }
+            }
+
+            fallbackCopyToClipboard(text, button) {
+                // Créer un élément temporaire pour la sélection
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    document.execCommand('copy');
+                    
+                    // Feedback visuel
+                    const originalIcon = button.innerHTML;
+                    const originalTitle = button.title;
+                    
+                    button.innerHTML = `
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20,6 9,17 4,12"/>
+                        </svg>
+                    `;
+                    button.title = "Copié !";
+                    button.classList.add('copied');
+                    
+                    setTimeout(() => {
+                        button.innerHTML = originalIcon;
+                        button.title = originalTitle;
+                        button.classList.remove('copied');
+                    }, 2000);
+                    
+                } catch (err) {
+                    console.error('Fallback copy failed:', err);
+                    button.title = "Échec de la copie";
+                    setTimeout(() => {
+                        button.title = "Copier la clé API";
+                    }, 2000);
+                } finally {
+                    document.body.removeChild(textArea);
                 }
             }
 
