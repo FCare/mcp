@@ -39,6 +39,11 @@
       }
     },
     {
+      "instance_id": "websocket_duplicator",
+      "step_definition": "Duplicator Step",
+      "config_overrides": {}
+    },
+    {
       "instance_id": "asr_duplicator",
       "step_definition": "Duplicator Step",
       "config_overrides": {}
@@ -73,6 +78,10 @@
     },
     {
       "from": "websocket_server",
+      "to": "websocket_duplicator"
+    },
+    {
+      "from": "websocket_duplicator",
       "to": ["asr_step", "openai_chat"]
     },
     {
