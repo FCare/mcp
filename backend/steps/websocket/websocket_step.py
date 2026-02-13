@@ -217,7 +217,12 @@ class WebSocketStep(PipelineStep):
             logger.info(f"🔑 API key provided for WebSocket authentication: {api_key[:8]}...")
             
             # Vérifier l'API key avec Voight-Kampff
-            headers = {'X-API-Key': api_key}
+            # Ajouter les headers pour identifier le service Joshua
+            headers = {
+                'X-API-Key': api_key,
+                'X-Forwarded-Host': 'joshua.caronboulme.fr',
+                'X-Forwarded-Uri': '/verify'
+            }
             async with aiohttp.ClientSession() as session:
                 async with session.get('http://voight-kampff:8080/verify', headers=headers) as response:
                     if response.status == 200:
