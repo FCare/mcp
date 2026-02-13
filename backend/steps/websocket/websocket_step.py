@@ -294,11 +294,14 @@ class WebSocketStep(PipelineStep):
                             )
                             self.output_queue.enqueue(audio_message)
                             logger.info(f"Audio message queued for processing")
-                        # Si ce n'est pas un message audio, passer à la section texte suivante
+                            continue  # Message traité, passer au suivant
+                        # Si ce n'est pas un message audio, laisser passer à la section texte
                     except json.JSONDecodeError:
                         logger.error(f"Invalid JSON from {client_id}: {message[:200]}...")
+                        continue
                     except Exception as e:
                         logger.error(f"Error processing audio JSON from {client_id}: {e}")
+                        continue
                         
                 elif self.mode == "audio_to_text" and isinstance(message, bytes):
                     logger.info(f"Processing raw audio message from {client_id}: {len(message)} bytes")
@@ -314,7 +317,7 @@ class WebSocketStep(PipelineStep):
                     self.output_queue.enqueue(audio_message)
                     logger.info(f"Audio message queued for processing")
                     
-                elif (self.mode in ["text_to_audio", "text_to_text", "audio_text_to_text_audio"]) and isinstance(message, str):
+                if (self.mode in ["text_to_audio", "text_to_text", "audio_text_to_text_audio"]) and isinstance(message, str):
                     logger.info(f"Processing text message from {client_id}: '{message[:100]}{'...' if len(message) > 100 else ''}'")
                     try:
                         data = json.loads(message)
