@@ -854,10 +854,11 @@ class JoshuaChat {
             // Clear canvas with transparent background
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw fewer bars with transparency animation
-            const barCount = 6;
+            // Draw 16 bars covering 0-12kHz (64 bins out of 128 total)
+            const barCount = 16;
+            const maxFreqBins = Math.floor(bufferLength / 2); // 64 bins for 0-12kHz (half of 24kHz range)
             const barWidth = canvas.width / barCount;
-            const dataStep = Math.floor(bufferLength / barCount);
+            const dataStep = Math.floor(maxFreqBins / barCount); // 64/16 = 4 bins per bar
 
             for (let i = 0; i < barCount; i++) {
                 const dataIndex = i * dataStep;
@@ -895,10 +896,11 @@ class JoshuaChat {
             // Clear canvas with transparent background
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw fewer bars with transparency animation
-            const barCount = 6;
+            // Draw 16 bars covering 0-12kHz (64 bins out of 128 total)
+            const barCount = 16;
+            const maxFreqBins = Math.floor(bufferLength / 2); // 64 bins for 0-12kHz (half of 24kHz range)
             const barWidth = canvas.width / barCount;
-            const dataStep = Math.floor(bufferLength / barCount);
+            const dataStep = Math.floor(maxFreqBins / barCount); // 64/16 = 4 bins per bar
 
             for (let i = 0; i < barCount; i++) {
                 const dataIndex = i * dataStep;
