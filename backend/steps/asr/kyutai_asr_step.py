@@ -199,7 +199,7 @@ class MoshiASR:
     def _build_websocket_url(self):
         """Build WebSocket URL for STT connection."""
         protocol = "wss"
-        base_path = "/stt"
+        base_path = "/api/asr-streaming"  # Chemin officiel du service Unmute STT
         return f"{protocol}://{self.host}{base_path}"
 
     def on_open(self, ws):
