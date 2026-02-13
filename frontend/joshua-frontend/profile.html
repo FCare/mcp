@@ -800,12 +800,15 @@
                     return '<div style="font-size: 0.75rem; max-width: 150px; color: #6b7280;">-</div>';
                 }
 
-                const serviceNames = allowedServices.map(scope => {
+                // Clean and deduplicate the allowed services
+                const cleanedServices = [...new Set(allowedServices.filter(s => s && s.trim() !== ''))];
+
+                const serviceNames = cleanedServices.map(scope => {
                     const service = availableServices.find(s => s.name === scope);
                     return service ? service.display_name : scope;
-                }).join(', ');
+                }).join('<br>');
 
-                return `<div style="font-size: 0.75rem; max-width: 150px;">${serviceNames}</div>`;
+                return `<div style="font-size: 0.75rem; max-width: 150px; line-height: 1.4;">${serviceNames}</div>`;
             }
 
             editUserScopes(userId) {
@@ -821,7 +824,7 @@
                 if (!user) return;
 
                 const currentScopes = user.allowed_scopes || '';
-                const allowedServices = currentScopes ? currentScopes.split(',').map(s => s.trim()).filter(s => s) : [];
+                const allowedServices = currentScopes ? [...new Set(currentScopes.split(',').map(s => s.trim()).filter(s => s && s !== ''))] : [];
 
                 // Create services selection HTML with real-time updates
                 let servicesHtml = '<div style="margin: 10px 0;">';
@@ -858,7 +861,10 @@
                 if (!user) return;
 
                 const currentScopes = user.allowed_scopes || '';
-                let allowedServices = currentScopes ? currentScopes.split(',').map(s => s.trim()).filter(s => s) : [];
+                let allowedServices = currentScopes ? currentScopes.split(',').map(s => s.trim()).filter(s => s && s !== '') : [];
+
+                // Remove any duplicates first
+                allowedServices = [...new Set(allowedServices)];
 
                 // Update the services list
                 if (isChecked) {
@@ -868,6 +874,9 @@
                 } else {
                     allowedServices = allowedServices.filter(s => s !== serviceName);
                 }
+
+                // Remove duplicates again after modification
+                allowedServices = [...new Set(allowedServices)];
 
                 // Send update to server
                 try {
@@ -883,8 +892,9 @@
                     });
 
                     if (response.ok) {
-                        // Update local data immediately for better UX
-                        user.allowed_scopes = allowedServices.join(',');
+                        // DON'T update local data to avoid conflicts with server data
+                        // Let the server be the source of truth
+                        console.log('Scope updated successfully');
                     } else {
                         console.error('Error updating scope');
                         // Revert checkbox state on error
