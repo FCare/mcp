@@ -42,6 +42,18 @@
 
         <!-- Input Area -->
         <div class="input-container">
+            <!-- Audio Visualizer -->
+            <div class="audio-visualizer" id="audio-visualizer" style="display: none;">
+                <div class="visualizer-container">
+                    <div class="visualizer-label">Input</div>
+                    <canvas id="input-visualizer" width="250" height="40"></canvas>
+                </div>
+                <div class="visualizer-container">
+                    <div class="visualizer-label">Output</div>
+                    <canvas id="output-visualizer" width="250" height="40"></canvas>
+                </div>
+            </div>
+            
             <div class="input-wrapper">
                 <button id="file-upload-btn" class="file-upload-btn" title="Upload file">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -49,8 +61,17 @@
                     </svg>
                 </button>
                 
-                <textarea 
-                    id="message-input" 
+                <button id="mic-btn" class="mic-btn" title="Voice input">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 1C10.34 1 9 2.34 9 4v4c0 1.66 1.34 3 3 3s3-1.34 3-3V4c0-1.66-1.34-3-3-3z"/>
+                        <path d="M19 10v2c0 3.87-3.13 7-7 7s-7-3.13-7-7v-2"/>
+                        <line x1="12" y1="19" x2="12" y2="23"/>
+                        <line x1="8" y1="23" x2="16" y2="23"/>
+                    </svg>
+                </button>
+                
+                <textarea
+                    id="message-input"
                     placeholder="Ask anything..."
                     rows="1"
                     maxlength="4000"

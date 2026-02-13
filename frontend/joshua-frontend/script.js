@@ -18,6 +18,20 @@ class JoshuaChat {
         this.isAuthenticated = false;
         this.currentUser = null;
         
+        // Audio properties
+        this.audioContext = null;
+        this.mediaStream = null;
+        this.micProcessor = null;
+        this.audioProcessor = null;
+        this.inputAnalyser = null;
+        this.outputAnalyser = null;
+        this.isRecording = false;
+        this.isAudioEnabled = false;
+        this.animationFrames = {
+            input: null,
+            output: null
+        };
+        
         this.initElements();
         this.bindEvents();
         this.autoResizeTextarea();
@@ -47,6 +61,12 @@ class JoshuaChat {
         this.authBtn = document.getElementById('auth-btn');
         this.authText = document.getElementById('auth-text');
         this.logoutBtn = document.getElementById('logout-btn');
+        
+        // Audio elements
+        this.micBtn = document.getElementById('mic-btn');
+        this.audioVisualizer = document.getElementById('audio-visualizer');
+        this.inputVisualizer = document.getElementById('input-visualizer');
+        this.outputVisualizer = document.getElementById('output-visualizer');
     }
 
     bindEvents() {
@@ -88,6 +108,11 @@ class JoshuaChat {
         // Logout button
         this.logoutBtn.addEventListener('click', () => {
             this.logout();
+        });
+
+        // Microphone button
+        this.micBtn.addEventListener('click', () => {
+            this.toggleAudio();
         });
 
         // Initial send button state
@@ -232,7 +257,7 @@ class JoshuaChat {
                     break;
                     
                 case 'audio_chunk':
-                    this.handleAudioChunk(message);
+                    this.handleAudioResponse(message.data);
                     break;
                     
                 case 'audio_finished':
@@ -281,10 +306,6 @@ class JoshuaChat {
         this.handleChatResponse(message);
     }
 
-    handleAudioChunk(message) {
-        // Handle TTS audio if needed
-        console.log('Audio chunk received');
-    }
 
     sendWebSocketMessage(text) {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
@@ -552,6 +573,336 @@ class JoshuaChat {
             this.currentUser = null;
             this.redirectToLogin();
         }
+    }
+
+    // ====== AUDIO FUNCTIONALITY ======
+
+    async toggleAudio() {
+        if (!this.isAudioEnabled) {
+            await this.initAudio();
+        } else {
+            this.toggleRecording();
+        }
+    }
+
+    async initAudio() {
+        try {
+            console.log('🎙️ Initializing audio...');
+            
+            // Request microphone permission
+            this.mediaStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    sampleRate: 24000,
+                    channelCount: 1,
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                }
+            });
+
+            // Create AudioContext
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                sampleRate: 24000
+            });
+
+            // Load AudioWorklet modules
+            await this.audioContext.audioWorklet.addModule('./joshua-mic-processor.js');
+            await this.audioContext.audioWorklet.addModule('./joshua-audio-processor.js');
+
+            // Setup microphone input
+            await this.setupMicrophoneInput();
+            
+            // Setup audio output
+            await this.setupAudioOutput();
+            
+            // Setup audio analysis and visualization
+            this.setupAudioAnalysis();
+
+            this.isAudioEnabled = true;
+            this.audioVisualizer.style.display = 'block';
+            
+            console.log('🎙️ Audio initialized successfully');
+        } catch (error) {
+            console.error('❌ Audio initialization failed:', error);
+            alert('Microphone access required for voice input. Please grant permission and try again.');
+        }
+    }
+
+    async setupMicrophoneInput() {
+        // Create microphone source
+        const source = this.audioContext.createMediaStreamSource(this.mediaStream);
+        
+        // Create microphone processor
+        this.micProcessor = new AudioWorkletNode(this.audioContext, 'joshua-mic-processor');
+        
+        // Connect source to processor
+        source.connect(this.micProcessor);
+        
+        // Listen for audio chunks
+        this.micProcessor.port.onmessage = (event) => {
+            if (event.data.type === 'audioChunk') {
+                this.handleAudioChunk(event.data);
+            }
+        };
+    }
+
+    async setupAudioOutput() {
+        // Create audio output processor
+        this.audioProcessor = new AudioWorkletNode(this.audioContext, 'joshua-audio-processor');
+        
+        // Connect to output analyser if available, otherwise directly to destination
+        if (this.outputAnalyser) {
+            this.audioProcessor.connect(this.outputAnalyser);
+            this.outputAnalyser.connect(this.audioContext.destination);
+        } else {
+            this.audioProcessor.connect(this.audioContext.destination);
+        }
+    }
+
+    setupAudioAnalysis() {
+        // Create analyser nodes for visualization
+        this.inputAnalyser = this.audioContext.createAnalyser();
+        this.inputAnalyser.fftSize = 256;
+        this.inputAnalyser.smoothingTimeConstant = 0.8;
+        
+        this.outputAnalyser = this.audioContext.createAnalyser();
+        this.outputAnalyser.fftSize = 256;
+        this.outputAnalyser.smoothingTimeConstant = 0.8;
+        
+        // Connect input stream to analyser
+        const source = this.audioContext.createMediaStreamSource(this.mediaStream);
+        source.connect(this.inputAnalyser);
+        
+        // Setup output analyser connection
+        if (this.audioProcessor) {
+            this.audioProcessor.disconnect();
+            this.audioProcessor.connect(this.outputAnalyser);
+            this.outputAnalyser.connect(this.audioContext.destination);
+        }
+        
+        // Start visualization
+        this.startAudioVisualization();
+    }
+
+    toggleRecording() {
+        if (!this.isRecording) {
+            this.startRecording();
+        } else {
+            this.stopRecording();
+        }
+    }
+
+    startRecording() {
+        if (!this.audioContext) {
+            console.warn('Audio not initialized');
+            return;
+        }
+
+        this.isRecording = true;
+        this.micBtn.classList.add('recording');
+        
+        // Start recording in microphone processor
+        this.micProcessor.port.postMessage({ command: 'start' });
+        
+        console.log('🎙️ Recording started');
+    }
+
+    stopRecording() {
+        if (!this.isRecording) return;
+        
+        this.isRecording = false;
+        this.micBtn.classList.remove('recording');
+        this.micBtn.classList.add('listening');
+        
+        // Stop recording in microphone processor
+        this.micProcessor.port.postMessage({ command: 'stop' });
+        
+        console.log('🎙️ Recording stopped, listening for response...');
+        
+        // Remove listening state after delay
+        setTimeout(() => {
+            this.micBtn.classList.remove('listening');
+        }, 3000);
+    }
+
+    handleAudioChunk(chunkData) {
+        if (!this.ws || !this.isConnected) {
+            console.warn('WebSocket not connected, cannot send audio');
+            return;
+        }
+
+        // Convert float32 PCM to base64 for WebSocket transmission
+        const pcmInt16 = new Int16Array(chunkData.data.length);
+        for (let i = 0; i < chunkData.data.length; i++) {
+            pcmInt16[i] = Math.max(-32768, Math.min(32767, chunkData.data[i] * 32767));
+        }
+
+        const audioData = new Uint8Array(pcmInt16.buffer);
+        const audioBase64 = btoa(String.fromCharCode.apply(null, audioData));
+
+        // Send audio chunk to Joshua backend
+        const audioMessage = {
+            type: 'audio',
+            data: audioBase64,
+            metadata: {
+                format: 'pcm16',
+                sample_rate: chunkData.sampleRate,
+                duration: chunkData.duration,
+                samples: chunkData.samples
+            }
+        };
+
+        this.ws.send(JSON.stringify(audioMessage));
+    }
+
+    handleAudioResponse(audioData) {
+        if (!this.audioProcessor || !this.audioContext) {
+            console.warn('Audio output not initialized');
+            return;
+        }
+
+        try {
+            // Decode base64 audio data
+            const binaryString = atob(audioData);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+
+            // Convert to Float32Array for AudioWorklet
+            const int16Array = new Int16Array(bytes.buffer);
+            const float32Array = new Float32Array(int16Array.length);
+            for (let i = 0; i < int16Array.length; i++) {
+                float32Array[i] = int16Array[i] / 32767.0;
+            }
+
+            // Send to audio processor
+            this.audioProcessor.port.postMessage({
+                type: 'audio',
+                frame: float32Array
+            });
+        } catch (error) {
+            console.error('Error processing audio response:', error);
+        }
+    }
+
+    startAudioVisualization() {
+        const drawInput = () => {
+            if (!this.inputAnalyser || !this.inputVisualizer) {
+                this.animationFrames.input = requestAnimationFrame(drawInput);
+                return;
+            }
+
+            const canvas = this.inputVisualizer;
+            const ctx = canvas.getContext('2d');
+            const bufferLength = this.inputAnalyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            
+            this.inputAnalyser.getByteFrequencyData(dataArray);
+
+            // Clear canvas with dark background
+            ctx.fillStyle = 'rgba(26, 26, 26, 0.3)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw fewer bars (8-10) with gray gradient
+            const barCount = 8;
+            const barWidth = canvas.width / barCount;
+            const dataStep = Math.floor(bufferLength / barCount);
+
+            for (let i = 0; i < barCount; i++) {
+                const dataIndex = i * dataStep;
+                let barHeight = (dataArray[dataIndex] / 255) * canvas.height;
+                barHeight = Math.max(2, barHeight);
+
+                // Gray gradient based on height
+                const intensity = barHeight / canvas.height;
+                const grayValue = Math.floor(100 + intensity * 155); // 100-255 gray range
+                ctx.fillStyle = `rgb(${grayValue}, ${grayValue}, ${grayValue})`;
+                
+                const x = i * barWidth + 2;
+                ctx.fillRect(x, canvas.height - barHeight, barWidth - 4, barHeight);
+            }
+
+            this.animationFrames.input = requestAnimationFrame(drawInput);
+        };
+
+        const drawOutput = () => {
+            if (!this.outputAnalyser || !this.outputVisualizer) {
+                this.animationFrames.output = requestAnimationFrame(drawOutput);
+                return;
+            }
+
+            const canvas = this.outputVisualizer;
+            const ctx = canvas.getContext('2d');
+            const bufferLength = this.outputAnalyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            
+            this.outputAnalyser.getByteFrequencyData(dataArray);
+
+            // Clear canvas with dark background
+            ctx.fillStyle = 'rgba(26, 26, 26, 0.3)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw fewer bars (8-10) with gray gradient
+            const barCount = 8;
+            const barWidth = canvas.width / barCount;
+            const dataStep = Math.floor(bufferLength / barCount);
+
+            for (let i = 0; i < barCount; i++) {
+                const dataIndex = i * dataStep;
+                let barHeight = (dataArray[dataIndex] / 255) * canvas.height;
+                barHeight = Math.max(2, barHeight);
+
+                // Gray gradient based on height
+                const intensity = barHeight / canvas.height;
+                const grayValue = Math.floor(100 + intensity * 155); // 100-255 gray range
+                ctx.fillStyle = `rgb(${grayValue}, ${grayValue}, ${grayValue})`;
+                
+                const x = i * barWidth + 2;
+                ctx.fillRect(x, canvas.height - barHeight, barWidth - 4, barHeight);
+            }
+
+            this.animationFrames.output = requestAnimationFrame(drawOutput);
+        };
+
+        console.log('🎨 Starting audio visualizations...');
+        drawInput();
+        drawOutput();
+    }
+
+    stopAudioVisualization() {
+        if (this.animationFrames.input) {
+            cancelAnimationFrame(this.animationFrames.input);
+            this.animationFrames.input = null;
+        }
+        if (this.animationFrames.output) {
+            cancelAnimationFrame(this.animationFrames.output);
+            this.animationFrames.output = null;
+        }
+    }
+
+    cleanup() {
+        // Stop visualizations
+        this.stopAudioVisualization();
+        
+        // Close audio context
+        if (this.audioContext) {
+            this.audioContext.close();
+            this.audioContext = null;
+        }
+        
+        // Stop media stream
+        if (this.mediaStream) {
+            this.mediaStream.getTracks().forEach(track => track.stop());
+            this.mediaStream = null;
+        }
+        
+        // Reset audio state
+        this.isAudioEnabled = false;
+        this.isRecording = false;
+        this.audioVisualizer.style.display = 'none';
+        
+        console.log('🎙️ Audio cleanup completed');
     }
 }
 
