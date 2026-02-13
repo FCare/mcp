@@ -33,7 +33,10 @@
     {
       "instance_id": "asr_step",
       "step_definition": "Kyutai ASR Step",
-      "config_overrides": {}
+      "config_overrides": {
+        "host": "unmute-transcript.caronboulme.fr",
+        "port": 443
+      }
     },
     {
       "instance_id": "asr_duplicator",

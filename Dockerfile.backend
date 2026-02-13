@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ .
 
 # Variables d'environnement par défaut
-ENV PIPELINE_NAME="Pipeline Chat WebSocket"
+ENV PIPELINE_NAME="Pipeline Chat TTS WebSocket"
 ENV WEBSOCKET_PORT=8768
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
