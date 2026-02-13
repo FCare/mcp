@@ -40,7 +40,7 @@
     }
   },
   "default_config": {
-    "host": "https://caronboulme.fr/chatterbox/speech",
+    "host": "https://chatterbox.caronboulme.fr/speech",
     "voice": "Fip4",
     "language_id": "fr",
     "speed": 1.0
