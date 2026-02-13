@@ -294,8 +294,7 @@ class WebSocketStep(PipelineStep):
                             )
                             self.output_queue.enqueue(audio_message)
                             logger.info(f"Audio message queued for processing")
-                        else:
-                            logger.warning(f"Unknown JSON message format from {client_id}: {message[:200]}...")
+                        # Si ce n'est pas un message audio, passer à la section texte suivante
                     except json.JSONDecodeError:
                         logger.error(f"Invalid JSON from {client_id}: {message[:200]}...")
                     except Exception as e:
