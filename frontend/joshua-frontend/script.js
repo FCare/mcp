@@ -773,6 +773,22 @@ class JoshuaChat {
         }
     }
 
+    async setupAudioOutputOnly() {
+        // Create audio output processor for TTS playback only (no microphone)
+        this.audioProcessor = new AudioWorkletNode(this.audioContext, 'joshua-audio-processor');
+        
+        // Create minimal output analyser for TTS
+        this.outputAnalyser = this.audioContext.createAnalyser();
+        this.outputAnalyser.fftSize = 256;
+        this.outputAnalyser.smoothingTimeConstant = 0.8;
+        
+        // Connect directly: audioProcessor -> outputAnalyser -> destination
+        this.audioProcessor.connect(this.outputAnalyser);
+        this.outputAnalyser.connect(this.audioContext.destination);
+        
+        console.log('🔊 Audio output setup completed for TTS');
+    }
+
     setupAudioAnalysis() {
         // Create analyser nodes for visualization
         this.inputAnalyser = this.audioContext.createAnalyser();
@@ -875,10 +891,36 @@ class JoshuaChat {
         this.ws.send(JSON.stringify(audioMessage));
     }
 
-    handleAudioResponse(audioData) {
+    async handleAudioResponse(audioData) {
+        // Initialize audio output automatically if not already done
         if (!this.audioProcessor || !this.audioContext) {
-            console.warn('Audio output not initialized');
-            return;
+            console.log('🔊 Initializing audio output for TTS playback...');
+            try {
+                // Initialize AudioContext and output processor only
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Resume AudioContext if needed (browser policy)
+                if (this.audioContext.state === 'suspended') {
+                    await this.audioContext.resume();
+                }
+                
+                // Load audio processor module if not already loaded
+                try {
+                    await this.audioContext.audioWorklet.addModule('./joshua-audio-processor.js');
+                    console.log('✅ joshua-audio-processor.js loaded for TTS');
+                } catch (modError) {
+                    // Module might already be loaded, continue
+                    console.log('Audio processor module already loaded or failed:', modError.message);
+                }
+                
+                // Setup audio output for TTS
+                await this.setupAudioOutputOnly();
+                
+                console.log('✅ Audio output initialized for TTS playback');
+            } catch (error) {
+                console.error('❌ Failed to initialize audio output for TTS:', error);
+                return;
+            }
         }
 
         try {
@@ -901,6 +943,8 @@ class JoshuaChat {
                 type: 'audio',
                 frame: float32Array
             });
+            
+            console.log(`🔊 Playing TTS audio chunk: ${float32Array.length} samples`);
         } catch (error) {
             console.error('Error processing audio response:', error);
         }
