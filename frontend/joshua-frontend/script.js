@@ -690,38 +690,24 @@ class JoshuaChat {
         }
     }
 
-    updateOutputVisualizerVisibility() {
-        console.log('👁️ [VIZ DEBUG] updateOutputVisualizerVisibility called');
-        console.log('👁️ [VIZ DEBUG] State:', {
-            isMuted: this.isMuted,
-            outputVisualizerContainer: !!this.outputVisualizerContainer,
-            outputAnalyser: !!this.outputAnalyser,
-            animationFrameOutput: !!this.animationFrames.output
-        });
-        
+    updateOutputVisualizerVisibility() {        
         // Contrôle uniquement la VISIBILITÉ de la zone selon le mute
         // La zone doit être visible dès qu'on est unmuted
         if (this.outputVisualizerContainer) {
-            console.log('👁️ [VIZ DEBUG] Output visualizer container found');
             if (this.isMuted) {
                 // Mute : cacher la zone (mais l'animation continue)
                 this.outputVisualizerContainer.style.display = 'none';
                 this.outputVisualizerContainer.classList.remove('active');
-                console.log('🔇 [VIZ DEBUG] Output visualizer hidden - muted');
             } else {
                 // Unmute : afficher la zone (même sans audio actuel)
                 this.outputVisualizerContainer.style.display = 'block';
                 this.outputVisualizerContainer.classList.add('active');
-                console.log('🔊 [VIZ DEBUG] Output visualizer shown - unmuted');
                 
                 // Démarrer l'animation si on a un analyser
                 if (this.outputAnalyser && !this.animationFrames.output) {
-                    console.log('👁️ [VIZ DEBUG] Starting output visualization from updateOutputVisualizerVisibility');
                     this.startAudioVisualization();
                 }
             }
-        } else {
-            console.log('👁️ [VIZ DEBUG] No output visualizer container found');
         }
     }
 
@@ -883,9 +869,17 @@ class JoshuaChat {
 
     async setupAudioOutputOnly() {
         console.log('🔊 [AUDIO DEBUG] setupAudioOutputOnly called');
-        // Create audio output processor for TTS playback only (no microphone)
-        this.audioProcessor = new AudioWorkletNode(this.audioContext, 'joshua-audio-processor');
-        console.log('🔊 [AUDIO DEBUG] AudioWorkletNode created:', !!this.audioProcessor);
+        
+        try {
+            // Create audio output processor for TTS playback only (no microphone)
+            this.audioProcessor = new AudioWorkletNode(this.audioContext, 'joshua-audio-processor');
+            console.log('🔊 [AUDIO DEBUG] AudioWorkletNode created:', !!this.audioProcessor);
+        } catch (workletError) {
+            console.error('🔊 [AUDIO DEBUG] Failed to create AudioWorkletNode:', workletError);
+            // Fallback: create a simple audio buffer for playback without WorkletProcessor
+            this.setupSimpleAudioOutput();
+            return;
+        }
         
         // Create minimal output analyser for TTS
         this.outputAnalyser = this.audioContext.createAnalyser();
@@ -916,6 +910,25 @@ class JoshuaChat {
         console.log('🔊 [AUDIO DEBUG] Priming oscillator started (silent)');
         
         console.log('🔊 Audio output setup completed for TTS with primed graph');
+    }
+    
+    setupSimpleAudioOutput() {
+        console.log('🔊 [AUDIO DEBUG] Setting up simple audio output fallback');
+        
+        // Create a simple gain node for basic audio playback
+        this.outputGain = this.audioContext.createGain();
+        this.outputGain.gain.value = 1.0;
+        
+        // Create analyser for visualization
+        this.outputAnalyser = this.audioContext.createAnalyser();
+        this.outputAnalyser.fftSize = 256;
+        this.outputAnalyser.smoothingTimeConstant = 0.8;
+        
+        // Connect: outputGain -> outputAnalyser -> destination
+        this.outputGain.connect(this.outputAnalyser);
+        this.outputAnalyser.connect(this.audioContext.destination);
+        
+        console.log('🔊 [AUDIO DEBUG] Simple audio output setup completed');
     }
 
     setupAudioAnalysis() {
@@ -1043,14 +1056,18 @@ class JoshuaChat {
         }
         
         // Initialize audio output automatically if not already done
-        if (!this.audioProcessor || !this.audioContext) {
+        if (!this.audioProcessor) {
             console.log('🎵 [AUDIO DEBUG] Initializing audio output for TTS...');
             try {
-                // Initialize AudioContext with 24kHz sample rate for TTS compatibility
-                this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
-                    sampleRate: 24000  // Match TTS sample rate to avoid pitch/speed issues
-                });
-                console.log('🎵 [AUDIO DEBUG] AudioContext created with sample rate:', this.audioContext.sampleRate);
+                // Reuse existing AudioContext if available, otherwise create new one
+                if (!this.audioContext) {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                        sampleRate: 24000  // Match TTS sample rate to avoid pitch/speed issues
+                    });
+                    console.log('🎵 [AUDIO DEBUG] New AudioContext created with sample rate:', this.audioContext.sampleRate);
+                } else {
+                    console.log('🎵 [AUDIO DEBUG] Reusing existing AudioContext with sample rate:', this.audioContext.sampleRate);
+                }
                 
                 // Resume AudioContext if needed (browser policy)
                 if (this.audioContext.state === 'suspended') {
@@ -1059,12 +1076,26 @@ class JoshuaChat {
                 }
                 
                 // Load audio processor module if not already loaded
+                // Check if already loaded by trying to create a temporary node
+                let moduleLoaded = false;
                 try {
-                    await this.audioContext.audioWorklet.addModule('./joshua-audio-processor.js');
-                    console.log('🎵 [AUDIO DEBUG] AudioWorklet module loaded successfully');
-                } catch (modError) {
-                    console.log('🎵 [AUDIO DEBUG] AudioWorklet module load error (might already be loaded):', modError);
-                    // Module might already be loaded, continue
+                    // Try to create a temporary node to test if module is loaded
+                    const testNode = new AudioWorkletNode(this.audioContext, 'joshua-audio-processor');
+                    testNode.disconnect();
+                    moduleLoaded = true;
+                    console.log('🎵 [AUDIO DEBUG] AudioWorklet module already loaded');
+                } catch (testError) {
+                    console.log('🎵 [AUDIO DEBUG] AudioWorklet module not loaded, loading now...');
+                }
+                
+                if (!moduleLoaded) {
+                    try {
+                        await this.audioContext.audioWorklet.addModule('./joshua-audio-processor.js');
+                        console.log('🎵 [AUDIO DEBUG] AudioWorklet module loaded successfully');
+                    } catch (modError) {
+                        console.error('🎵 [AUDIO DEBUG] AudioWorklet module load failed:', modError);
+                        throw modError;
+                    }
                 }
                 
                 // Setup audio output for TTS
@@ -1176,10 +1207,6 @@ class JoshuaChat {
 
         const drawOutput = () => {
             if (!this.outputAnalyser || !this.outputVisualizer) {
-                console.log('🎨 [VIZ DEBUG] drawOutput - missing components:', {
-                    outputAnalyser: !!this.outputAnalyser,
-                    outputVisualizer: !!this.outputVisualizer
-                });
                 this.animationFrames.output = requestAnimationFrame(drawOutput);
                 return;
             }
@@ -1194,9 +1221,6 @@ class JoshuaChat {
             // Debug frequency data
             const maxValue = Math.max(...dataArray);
             const avgValue = dataArray.reduce((sum, val) => sum + val, 0) / dataArray.length;
-            if (maxValue > 0) { // Only log when there's actual audio data
-                console.log('🎨 [VIZ DEBUG] Output frequency data - Max:', maxValue, 'Avg:', avgValue.toFixed(2));
-            }
 
             // Clear canvas with transparent background
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1226,10 +1250,6 @@ class JoshuaChat {
                 ctx.fillRect(x, canvas.height - barHeight, barWidthAdjusted, barHeight);
                 
                 if (barHeight > 1) drawnBars++;
-            }
-
-            if (drawnBars > 0) {
-                console.log('🎨 [VIZ DEBUG] Drew', drawnBars, 'active bars out of', barCount);
             }
 
             this.animationFrames.output = requestAnimationFrame(drawOutput);
