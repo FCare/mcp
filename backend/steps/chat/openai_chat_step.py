@@ -175,15 +175,20 @@ class OpenAIChatStep(PipelineStep):
                     self._handle_system_prompt_update(input_message)
                     return
                 
-                # FILTRER: Ignorer les transcript_chunk, ne traiter que transcript_done
+                # FILTRER: Ignorer les messages audio et transcript_chunk, ne traiter que text et transcript_done
                 if (hasattr(input_message, 'metadata') and
                     input_message.metadata):
                     message_type = input_message.metadata.get('message_type')
-                    if message_type == 'transcript_chunk':
+                    if message_type == 'audio':
+                        logger.debug(f"💬 Chat: Ignoring audio message, should be handled by ASR")
+                        return
+                    elif message_type == 'transcript_chunk':
                         logger.debug(f"💬 Chat: Ignoring transcript_chunk (streaming), waiting for transcript_done")
                         return
                     elif message_type == 'transcript_done':
                         logger.info(f"💬 Chat: Processing transcript_done - starting chat generation")
+                    elif message_type == 'text':
+                        logger.info(f"💬 Chat: Processing text message from frontend")
                     
                 # Extraire le client_id des métadonnées du message entrant
                 if hasattr(input_message, 'metadata') and input_message.metadata:

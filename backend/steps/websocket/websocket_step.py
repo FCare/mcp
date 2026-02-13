@@ -291,6 +291,7 @@ class WebSocketStep(PipelineStep):
                                 data=audio_bytes,
                                 metadata={
                                     "client_id": client_id,
+                                    "message_type": "audio",  # ✅ Marquer comme message audio
                                     "format": metadata.get("format", self.audio_format),
                                     "sample_rate": metadata.get("sample_rate", self.sample_rate),
                                     "channels": metadata.get("channels", 1),
@@ -315,6 +316,7 @@ class WebSocketStep(PipelineStep):
                         data=message,
                         metadata={
                             "client_id": client_id,
+                            "message_type": "audio",  # ✅ Marquer comme message audio
                             "format": self.audio_format,
                             "sample_rate": self.sample_rate,
                             "timestamp": time.time()
@@ -353,6 +355,7 @@ class WebSocketStep(PipelineStep):
                         },
                         metadata={
                             "client_id": client_id,
+                            "message_type": "text",  # ✅ Marquer comme message text
                             "timestamp": time.time(),
                             "has_images": len(images) > 0,
                             "image_count": len(images)
