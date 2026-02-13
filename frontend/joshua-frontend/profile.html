@@ -823,14 +823,14 @@
                 const currentScopes = user.allowed_scopes || '';
                 const allowedServices = currentScopes ? currentScopes.split(',').map(s => s.trim()).filter(s => s) : [];
 
-                // Create services selection HTML
+                // Create services selection HTML with real-time updates
                 let servicesHtml = '<div style="margin: 10px 0;">';
 
                 this.userData.available_services.forEach(service => {
                     const checked = allowedServices.includes(service.name) ? 'checked' : '';
                     servicesHtml += `
                         <label style="display: block; margin: 4px 0;">
-                            <input type="checkbox" value="${service.name}" ${checked}>
+                            <input type="checkbox" value="${service.name}" ${checked} onchange="joshuaProfile.updateUserScope(${userId}, '${service.name}', this.checked)">
                             ${service.display_name}
                         </label>
                     `;
@@ -843,28 +843,36 @@
 
                 scopesContainer.innerHTML = `
                     <div class="edit-scopes-interface" style="background: #f9fafb; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb;">
-                        <div style="font-weight: 500; margin-bottom: 10px;">Modifier les services autorisés:</div>
+                        <div style="font-weight: 500; margin-bottom: 10px;">Services autorisés:</div>
                         ${servicesHtml}
-                        <div style="margin-top: 10px; display: flex; gap: 8px;">
-                            <button onclick="joshuaProfile.saveUserScopes(${userId})" class="btn btn-primary" style="font-size: 0.75rem; padding: 4px 8px;">Sauvegarder</button>
-                            <button onclick="joshuaProfile.cancelEditScopes(${userId}, \`${originalContent.replace(/`/g, '\\`')}\`)" class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 8px;">Annuler</button>
+                        <div style="margin-top: 10px;">
+                            <button onclick="joshuaProfile.finishEditScopes(${userId})" class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 8px;">Terminé</button>
                         </div>
                     </div>
                 `;
             }
 
-            async saveUserScopes(userId) {
-                const scopesContainer = document.getElementById(`user-scopes-${userId}`);
-                const checkboxes = scopesContainer.querySelectorAll('input[type="checkbox"]:checked');
-                
-                const selectedServices = [];
-                checkboxes.forEach(checkbox => {
-                    selectedServices.push(checkbox.value);
-                });
+            async updateUserScope(userId, serviceName, isChecked) {
+                // Find user and get current scopes
+                const user = this.userData.admin_users.find(u => u.id === userId);
+                if (!user) return;
 
+                const currentScopes = user.allowed_scopes || '';
+                let allowedServices = currentScopes ? currentScopes.split(',').map(s => s.trim()).filter(s => s) : [];
+
+                // Update the services list
+                if (isChecked) {
+                    if (!allowedServices.includes(serviceName)) {
+                        allowedServices.push(serviceName);
+                    }
+                } else {
+                    allowedServices = allowedServices.filter(s => s !== serviceName);
+                }
+
+                // Send update to server
                 try {
                     const formData = new FormData();
-                    selectedServices.forEach(service => {
+                    allowedServices.forEach(service => {
                         formData.append('service', service);
                     });
 
@@ -875,18 +883,29 @@
                     });
 
                     if (response.ok) {
-                        this.loadUserData(); // Reload to show updated data
+                        // Update local data immediately for better UX
+                        user.allowed_scopes = allowedServices.join(',');
                     } else {
-                        console.error('Error saving scopes');
+                        console.error('Error updating scope');
+                        // Revert checkbox state on error
+                        const checkbox = document.querySelector(`#user-scopes-${userId} input[value="${serviceName}"]`);
+                        if (checkbox) {
+                            checkbox.checked = !isChecked;
+                        }
                     }
                 } catch (error) {
-                    console.error('Error saving scopes:', error);
+                    console.error('Error updating scope:', error);
+                    // Revert checkbox state on error
+                    const checkbox = document.querySelector(`#user-scopes-${userId} input[value="${serviceName}"]`);
+                    if (checkbox) {
+                        checkbox.checked = !isChecked;
+                    }
                 }
             }
 
-            cancelEditScopes(userId, originalContent) {
-                const scopesContainer = document.getElementById(`user-scopes-${userId}`);
-                scopesContainer.innerHTML = originalContent;
+            finishEditScopes(userId) {
+                // Simply reload the data to show the updated permissions in normal view
+                this.loadUserData();
             }
 
             async createApiKey() {
