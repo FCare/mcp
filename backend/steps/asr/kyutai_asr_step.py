@@ -7,6 +7,7 @@ import math
 import struct
 from abc import abstractmethod
 from dataclasses import dataclass
+from collections import deque
 from enum import Enum
 from typing import Optional, Dict, Any
 
@@ -149,6 +150,10 @@ class MoshiASR:
         self.text_buffer = []
         self.current_client_id = None
 
+        # Queue pour les paquets audio en attente de connexion
+        self.pending_audio_queue = deque()
+        self.connection_in_progress = False
+
         logger.debug(f"{self.name}: Initialized with VK API key: {vk_api_key[:10]}..." if vk_api_key else f"{self.name}: Initialized without VK API key")
 
     def set_output_queue(self, queue):
@@ -156,6 +161,9 @@ class MoshiASR:
 
     def connect(self):
         """Establish WebSocket connection with Moshi STT server."""
+        if self.connection_in_progress:
+            return
+            
         if self._connected:
             return
         
@@ -182,6 +190,7 @@ class MoshiASR:
         )
         
         def start_ws():
+            self.connection_in_progress = True
             import ssl
             self.ws.run_forever(sslopt={"cert_reqs": ssl.CERT_NONE})
         
@@ -195,6 +204,7 @@ class MoshiASR:
             
         if not self._connected:
             raise RuntimeError(f"Failed to connect to {ws_url} within {timeout}s")
+        self.connection_in_progress = False
 
     def _build_websocket_url(self):
         """Build WebSocket URL for STT connection."""
@@ -206,6 +216,18 @@ class MoshiASR:
         """WebSocket connection opened callback."""
         self._connected = True
         logger.debug(f"{self.name}: WebSocket connected successfully")
+        
+        # Vider la queue des paquets en attente
+        if self.pending_audio_queue:
+            logger.debug(f"{self.name}: Processing {len(self.pending_audio_queue)} queued audio packets")
+            while self.pending_audio_queue:
+                audio_data, client_id, timestamp = self.pending_audio_queue.popleft()
+                try:
+                    self._process_audio_chunk_internal(audio_data, client_id, timestamp)
+                except Exception as e:
+                    logger.error(f"{self.name}: Error processing queued audio: {e}")
+                    break
+            logger.debug(f"{self.name}: Finished processing queued audio packets")
 
     def on_message(self, ws, message):
         """WebSocket message received callback."""
@@ -334,6 +356,7 @@ class MoshiASR:
 
     def on_close(self, ws, close_status_code, close_msg):
         """WebSocket close callback."""
+        self.connection_in_progress = False
         self._connected = False
         self._stream_active = False
         logger.debug(f"{self.name}: WebSocket disconnected")
@@ -372,13 +395,32 @@ class MoshiASR:
 
     def _process_audio_chunk(self, audio_chunk: str, client_id: str = None):
         """
-        Main entry point - direct synchronous sending.
+        Main entry point - handle queuing when not connected.
+        """
+        timestamp = time.time()
+        
+        if not self._connected:
+            logger.debug(f"{self.name}: Not connected, queuing audio packet")
+            self.pending_audio_queue.append((audio_chunk, client_id, timestamp))
+            
+            # Initier la connexion si pas déjà en cours
+            if not self.connection_in_progress:
+                try:
+                    self.connect()
+                except Exception as e:
+                    logger.error(f"{self.name}: Failed to initiate connection: {e}")
+            return
+            
+        self._process_audio_chunk_internal(audio_chunk, client_id, timestamp)
+
+    def _process_audio_chunk_internal(self, audio_chunk: str, client_id: str = None, timestamp: float = None):
+        """
+        Internal processing - direct synchronous sending.
         
         Receives audio from client → Split into 80ms → Send directly to STT
         """
-        if not self._connected or not self._stream_active:
-            logger.debug("not active")
-            return
+        if not self._stream_active:
+            logger.debug(f"{self.name}: Stream not active yet")
             
         # Update client_id if provided
         if client_id:
@@ -392,7 +434,8 @@ class MoshiASR:
             # Convert int16 to float32 and normalize
             audio_float32 = [float(sample) / 32767.0 for sample in audio_ints]
             
-            base_timestamp = time.time()
+            # Use provided timestamp or current time
+            base_timestamp = timestamp if timestamp is not None else time.time()
             packet_index = 0
             
             for i in range(0, len(audio_float32), SAMPLES_PER_FRAME):
@@ -422,6 +465,7 @@ class MoshiASR:
         except Exception as e:
             logger.error(f"{self.name}: Disconnect error: {e}")
         finally:
+            self.connection_in_progress = False
             self._connected = False
             self._stream_active = False
             self.flushing_mode = False
@@ -438,6 +482,8 @@ class MoshiASR:
             self.flushing_mode = False
             
             logger.debug(f"{self.name}: Reset completed")
+            # Vider la queue en cas de reset
+            self.pending_audio_queue.clear()
             
         except Exception as e:
             logger.error(f"{self.name}: Reset error: {e}")
