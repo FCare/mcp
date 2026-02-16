@@ -138,62 +138,52 @@ class KyutaiTTS:
         self._connected = True
         logger.info(f"{self.name}: WebSocket connected")
 
-    def on_message(self, ws, message):
+    def on_message(self, ws, message): 
+        # Essayer de décoder comme msgpack (messages de contrôle)
         try:
-            # Vérifier si c'est des données OGG (audio direct)
-            if isinstance(message, bytes) and message.startswith(b'OggS'):
-                logger.debug(f"{self.name}: Received OGG Vorbis audio data ({len(message)} bytes)")
-                self._enqueue_audio_chunk(message)
-                return
-                
-            # Essayer de décoder comme msgpack (messages de contrôle)
-            try:
-                message_dict = msgpack.unpackb(message)
-                
-                message_type = message_dict.get('type', 'unknown')
+            message_dict = msgpack.unpackb(message)
+            
+            message_type = message_dict.get('type', 'unknown')
 
-                if message_type == 'Ready':
-                    self._stream_active = True
-                    logger.info(f"{self.name}: TTS ready")
-                    return
-                
-                elif message_type == 'Audio':
-                    pcm_data = message_dict.get('pcm', [])
-                    if pcm_data and self.output_queue:
-                        # Convertir float32 -> int16 (comme unmute backend fait)
-                        # Clamping des valeurs entre -1.0 et 1.0, puis multiplier par 32767
-                        pcm_int16 = []
-                        for sample in pcm_data:
-                            # Clamp entre -1.0 et 1.0
-                            clamped = max(-1.0, min(1.0, sample))
-                            # Convertir en int16 (-32768 à 32767)
-                            int16_val = int(clamped * 32767)
-                            pcm_int16.append(int16_val)
-                        
-                        # Packer en bytes (format 'h' = signed short int16)
-                        audio_bytes = struct.pack(f'{len(pcm_int16)}h', *pcm_int16)
-                        self._enqueue_audio_chunk(audio_bytes)
-                    else:
-                        logger.warning(f"{self.name}: No PCM data or no output queue available")
-                        
-                elif message_type == 'Error':
-                    error_msg = message_dict.get('message', 'Unknown TTS error')
-                    logger.error(f"{self.name}: TTS Error: {error_msg}")
+            if message_type == 'Ready':
+                self._stream_active = True
+                logger.info(f"{self.name}: TTS ready")
+                return
+            
+            elif message_type == 'Audio':
+                pcm_data = message_dict.get('pcm', [])
+                if pcm_data and self.output_queue:
+                    # Convertir float32 -> int16 (comme unmute backend fait)
+                    # Clamping des valeurs entre -1.0 et 1.0, puis multiplier par 32767
+                    pcm_int16 = []
+                    for sample in pcm_data:
+                        # Clamp entre -1.0 et 1.0
+                        clamped = max(-1.0, min(1.0, sample))
+                        # Convertir en int16 (-32768 à 32767)
+                        int16_val = int(clamped * 32767)
+                        pcm_int16.append(int16_val)
                     
-            except msgpack.exceptions.ExtraData:
-                # Si c'est des données binaires non-msgpack, les traiter comme audio
-                logger.debug(f"{self.name}: Raw binary data ({len(message)} bytes)")
-                self._enqueue_audio_chunk(message)
-            except Exception as decode_error:
-                # Si ce n'est pas du msgpack valide, traiter comme audio brut
-                logger.debug(f"{self.name}: Could not decode as msgpack, treating as raw audio: {decode_error}")
-                if isinstance(message, bytes):
-                    self._enqueue_audio_chunk(message)
+                    # Packer en bytes (format 'h' = signed short int16)
+                    audio_bytes = struct.pack(f'{len(pcm_int16)}h', *pcm_int16)
+                    self._enqueue_audio_chunk(audio_bytes)
                 else:
-                    logger.warning(f"{self.name}: Unknown message type: {type(message)}")
+                    logger.warning(f"{self.name}: No PCM data or no output queue available")
+                    
+            elif message_type == 'Error':
+                error_msg = message_dict.get('message', 'Unknown TTS error')
+                logger.error(f"{self.name}: TTS Error: {error_msg}")
                 
-        except Exception as e:
-            logger.error(f"{self.name}: Error processing TTS message: {e}")
+        except msgpack.exceptions.ExtraData:
+            # Si c'est des données binaires non-msgpack, les traiter comme audio
+            logger.debug(f"{self.name}: Raw binary data ({len(message)} bytes)")
+            self._enqueue_audio_chunk(message)
+        except Exception as decode_error:
+            # Si ce n'est pas du msgpack valide, traiter comme audio brut
+            logger.debug(f"{self.name}: Could not decode as msgpack, treating as raw audio: {decode_error}")
+            if isinstance(message, bytes):
+                self._enqueue_audio_chunk(message)
+            else:
+                logger.warning(f"{self.name}: Unknown message type: {type(message)}")
 
     def _enqueue_audio_chunk(self, audio_bytes: bytes):
         if self.output_queue:
@@ -262,26 +252,10 @@ class KyutaiTTS:
             
         try:
             self._send_text(text)
-            #self._send_eos()
+            self._send_eos()
             
         except Exception as e:
             logger.error(f"{self.name}: Error processing text: {e}")
-    
-    def process_text_only(self, text: str, client_id: str = None):
-        """Traite le texte SANS envoyer EOS (pour streaming)"""
-        if not self._connected:
-            logger.error("TTS not connected")
-            return
-            
-        if client_id:
-            self.current_client_id = client_id
-            
-        try:
-            self._send_text(text)
-            logger.info(f"{self.name}: Sent text without EOS: '{text[:50]}...'")
-            
-        except Exception as e:
-            logger.error(f"{self.name}: Error processing text only: {e}")
 
     def disconnect(self):
         logger.info(f"{self.name}: Disconnecting...")
@@ -400,12 +374,22 @@ class KyutaiTTSStep(PipelineStep):
                 logger.error("TTS: KyutaiTTS not initialized")
                 return
             
+            # 🔄 RECONNEXION AUTOMATIQUE si déconnecté
+            if not self.kyutai_tts._connected:
+                logger.info(f"TTS: WebSocket déconnecté, reconnexion automatique...")
+                try:
+                    self.kyutai_tts.connect()
+                    logger.info(f"TTS: Reconnexion réussie")
+                except Exception as e:
+                    logger.error(f"TTS: Erreur reconnexion: {e}")
+                    return
+            
             logger.info(f"TTS: KyutaiTTS connected: {self.kyutai_tts._connected}, active: {self.kyutai_tts._stream_active}")
             
             text_data = message.data
             if isinstance(text_data, str) and text_data.strip():
                 # Envoyer seulement le texte, EOS sera envoyé au finish signal
-                self.kyutai_tts.process_text_only(text_data.strip(), self.current_client_id)
+                self.kyutai_tts.process_text(text_data.strip(), self.current_client_id)
                 logger.info(f"TTS: Text processed: '{text_data[:50]}...' for client {self.current_client_id}")
             else:
                 logger.warning(f"TTS: Invalid text data: {type(text_data)}, content: '{text_data}'")
@@ -419,7 +403,7 @@ class KyutaiTTSStep(PipelineStep):
         """Traite le signal finish du chat en envoyant EOS"""
         try:
             if self.kyutai_tts and self.kyutai_tts._connected:
-                self.kyutai_tts._send_eos()
+                #self.kyutai_tts._send_eos()
                 logger.info(f"TTS: Sent EOS for finish signal to client: {self.current_client_id}")
             else:
                 logger.warning("TTS: Cannot send EOS - KyutaiTTS not connected")
