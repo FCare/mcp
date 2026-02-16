@@ -193,6 +193,7 @@ class KyutaiTTS:
             logger.error(f"{self.name}: Error sending EOS to TTS: {e}")
 
     def process_text(self, text: str, client_id: str = None):
+        """Traite le texte avec EOS (méthode originale pour compatibilité)"""
         if not self._connected or not self._stream_active:
             logger.debug("TTS not active")
             return
@@ -202,10 +203,26 @@ class KyutaiTTS:
             
         try:
             self._send_text(text)
-            self._send_eos()
+            #self._send_eos()
             
         except Exception as e:
             logger.error(f"{self.name}: Error processing text: {e}")
+    
+    def process_text_only(self, text: str, client_id: str = None):
+        """Traite le texte SANS envoyer EOS (pour streaming)"""
+        if not self._connected:
+            logger.debug("TTS not connected")
+            return
+            
+        if client_id:
+            self.current_client_id = client_id
+            
+        try:
+            self._send_text(text)
+            logger.debug(f"{self.name}: Sent text without EOS: '{text[:50]}...'")
+            
+        except Exception as e:
+            logger.error(f"{self.name}: Error processing text only: {e}")
 
     def disconnect(self):
         logger.debug(f"{self.name}: Disconnecting...")
@@ -282,14 +299,23 @@ class KyutaiTTSStep(PipelineStep):
                 logger.warning(f"TTS: Unsupported message type: {message.type}")
                 return
             
-            text_data = message.data
-            if not text_data:
-                logger.error("TTS: No text data in message")
-                return
-            
+            # Extraire les métadonnées pour détecter les finish signals
+            metadata = message.metadata or {}
             if message.metadata:
                 self.current_client_id = message.metadata.get("client_id") or message.metadata.get("original_client_id")
                 logger.info(f"TTS: Client ID: {self.current_client_id}")
+            
+            # 🎯 DÉTECTER LE SIGNAL FINISH DU CHAT
+            is_finish_signal = (
+                metadata.get('chunk_type') == 'finish' or
+                not message.data or
+                (isinstance(message.data, str) and message.data.strip() == "")
+            )
+            
+            if is_finish_signal:
+                logger.info(f"TTS: Received finish signal from chat for client: {self.current_client_id}")
+                #self._handle_finish_signal()
+                return
             
             if not self.kyutai_tts:
                 logger.error("TTS: KyutaiTTS not initialized")
@@ -297,16 +323,29 @@ class KyutaiTTSStep(PipelineStep):
             
             logger.info(f"TTS: KyutaiTTS connected: {self.kyutai_tts._connected}, active: {self.kyutai_tts._stream_active}")
             
-            if isinstance(text_data, str):
-                self.kyutai_tts.process_text(text_data.strip(), self.current_client_id)
+            text_data = message.data
+            if isinstance(text_data, str) and text_data.strip():
+                # Envoyer seulement le texte, EOS sera envoyé au finish signal
+                self.kyutai_tts.process_text_only(text_data.strip(), self.current_client_id)
                 logger.info(f"TTS: Text processed: '{text_data[:50]}...' for client {self.current_client_id}")
             else:
-                logger.error(f"TTS: Expected string text data, received: {type(text_data)}")
+                logger.warning(f"TTS: Invalid text data: {type(text_data)}, content: '{text_data}'")
             
         except Exception as e:
             logger.error(f"TTS: Error processing text: {e}")
             import traceback
             logger.error(f"TTS: Traceback: {traceback.format_exc()}")
+    
+    def _handle_finish_signal(self):
+        """Traite le signal finish du chat en envoyant EOS"""
+        try:
+            if self.kyutai_tts and self.kyutai_tts._connected:
+                self.kyutai_tts._send_eos()
+                logger.info(f"TTS: Sent EOS for finish signal to client: {self.current_client_id}")
+            else:
+                logger.warning("TTS: Cannot send EOS - KyutaiTTS not connected")
+        except Exception as e:
+            logger.error(f"TTS: Error sending finish EOS: {e}")
     
     def reset_tts(self):
         try:

@@ -89,10 +89,8 @@ class SentenceNormalizerStep(PipelineStep):
         Handler ChunkQueue : traite les chunks de texte et produit des phrases normalisées
         """
         try:
-            # 🎯 LOGIQUE SIMPLIFIÉE: Ignorer les signaux finish, ils iront directement au TTS
             if (hasattr(message, 'metadata') and message.metadata and
                 message.metadata.get('chunk_type') == 'finish'):
-                logger.info(f"🔄 SentenceNormalizer ignore le signal FINISH (il ira directement au TTS)")
                 return
             
             # Vérifier à la fois 'data' et 'result' (OutputMessage vs InputMessage)
