@@ -258,41 +258,7 @@ class PipelineLoader:
                             from_step_obj.add_output_queue(target_step.input_queue)
                             print(f"✅ Connection: {from_step} → {target_id}")
         
-        # Plus besoin de multi_connections - syntaxe unifiée
-        
-        self._setup_bidirectional_connections(pipeline, pipeline_def, steps_map)
-        
         return pipeline
-    
-    # Méthode obsolète - remplacée par syntaxe unifiée dans connections
-
-    def _setup_bidirectional_connections(self, pipeline: Pipeline, pipeline_def: Dict, steps_map: Dict):
-        try:
-            pipeline_name = pipeline_def.get("name") or pipeline_def.get("pipeline_id")
-            if "audio_transcription" in pipeline_name:
-                asr_step = steps_map.get("asr_step")
-                ws_step = steps_map.get("websocket_server")
-                
-                if asr_step and ws_step:
-                    asr_step.set_output_queue(ws_step.input_queue)
-            
-            elif "text_to_speech" in pipeline_name:
-                tts_step = steps_map.get("chatterbox_tts")
-                ws_step = steps_map.get("websocket_server")
-                
-                if tts_step and ws_step:
-                    tts_step.set_output_queue(ws_step.input_queue)
-            
-            elif "chat" in pipeline_name.lower():
-                chat_step = steps_map.get("openai_chat")
-                ws_step = steps_map.get("websocket_server")
-                
-                if chat_step and ws_step:
-                    chat_step.set_output_queue(ws_step.input_queue)
-                    ws_step.set_output_queue(chat_step.input_queue)
-                    
-        except Exception as e:
-            pass
     
     def list_pipelines_info(self) -> List[Dict]:
         pipelines_info = []
