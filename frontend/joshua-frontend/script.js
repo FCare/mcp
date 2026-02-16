@@ -18,6 +18,7 @@ class JoshuaChat {
         this.isAuthenticated = false;
         this.currentUser = null;
         this.apiKey = null; // API key temporaire pour WebSocket
+        this.apiKeyExpiresAt = null; // Heure d'expiration de l'API key
         
         // Audio properties
         this.audioContext = null;
@@ -43,11 +44,12 @@ class JoshuaChat {
         this.updateOutputVisualizerVisibility();
         
         // Check authentication before connecting WebSocket
-        this.checkAuthentication().then(() => {
+        this.checkAuthentication().then(async () => {
             if (this.isAuthenticated) {
-                this.fetchWebSocketApiKey().then(() => {
-                    this.connectWebSocket();
-                });
+                const success = await this.fetchWebSocketApiKey();
+                if (success) {
+                    await this.connectWebSocket();
+                }
             } else {
                 this.redirectToLogin();
             }
@@ -214,12 +216,16 @@ class JoshuaChat {
             .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
     }
 
-    connectWebSocket() {
-        // Construire l'URL WebSocket avec l'API key comme paramètre de query
-        if (!this.apiKey) {
-            console.error('No API key available for WebSocket connection');
-            this.addMessage('Authentication error. Please refresh the page.', 'assistant', true);
-            return;
+    async connectWebSocket() {
+        // Vérifier si l'API key est expirée ou manquante
+        if (this.isApiKeyExpired()) {
+            console.log('API key expired or missing, fetching new one');
+            const success = await this.fetchWebSocketApiKey();
+            if (!success) {
+                console.error('Failed to get API key for WebSocket connection');
+                this.addMessage('Authentication error. Please refresh the page.', 'assistant', true);
+                return;
+            }
         }
         
         const wsUrl = `${this.getWebSocketUrl()}?api_key=${encodeURIComponent(this.apiKey)}`;
@@ -238,15 +244,21 @@ class JoshuaChat {
                 this.handleWebSocketMessage(event.data);
             };
             
-            this.ws.onclose = (event) => {
+            this.ws.onclose = async (event) => {
                 console.log('WebSocket disconnected:', event.code, event.reason);
                 this.isConnected = false;
                 this.updateConnectionStatus();
                 
+                // Vérifier si c'est une erreur d'authentification
+                if (event.code === 1008 || event.code === 1002) { // Unauthorized codes
+                    console.log('WebSocket closed due to auth error, refreshing API key');
+                    await this.fetchWebSocketApiKey();
+                }
+                
                 // Attempt to reconnect after 3 seconds
-                setTimeout(() => {
+                setTimeout(async () => {
                     if (!this.isConnected) {
-                        this.connectWebSocket();
+                        await this.connectWebSocket(); // Utilise la version async
                     }
                 }, 3000);
             };
@@ -605,6 +617,18 @@ class JoshuaChat {
         }
     }
 
+    isApiKeyExpired() {
+        if (!this.apiKey || !this.apiKeyExpiresAt) {
+            return true;
+        }
+        // Renouveler 5 minutes avant l'expiration
+        const expirationTime = new Date(this.apiKeyExpiresAt).getTime();
+        const currentTime = Date.now();
+        const bufferTime = 5 * 60 * 1000; // 5 minutes
+        
+        return currentTime >= (expirationTime - bufferTime);
+    }
+
     async fetchWebSocketApiKey() {
         try {
             const response = await fetch(`${this.apiBaseUrl}/auth/session-api-key`, {
@@ -615,8 +639,14 @@ class JoshuaChat {
             if (response.ok) {
                 const data = await response.json();
                 this.apiKey = data.api_key;
+                this.apiKeyExpiresAt = data.expires_at;
                 console.log(`WebSocket API key obtained (${data.status}), expires: ${data.expires_at}`);
                 return true;
+            } else if (response.status === 401) {
+                // Session expirée, rediriger vers login
+                console.log('Session expired, redirecting to login');
+                this.redirectToLogin();
+                return false;
             } else {
                 console.error('Failed to get WebSocket API key:', response.status);
                 return false;
