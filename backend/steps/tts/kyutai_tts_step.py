@@ -278,7 +278,7 @@ class KyutaiTTSStep(PipelineStep):
     def _handle_input_message(self, message: Message):
         try:
             logger.info(f"TTS: _handle_input_message called with type={message.type}")
-            if message.type != MessageType.INPUT:
+            if message.type != MessageType.DATA:
                 logger.warning(f"TTS: Unsupported message type: {message.type}")
                 return
             

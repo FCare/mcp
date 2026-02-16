@@ -4,8 +4,7 @@ from enum import Enum
 
 
 class MessageType(Enum):
-    INPUT = "input"
-    OUTPUT = "output"
+    DATA = "data"
     ERROR = "error"
     CONTROL = "control"
 
@@ -17,16 +16,16 @@ class Message:
     metadata: Optional[Dict] = None
 
 
-@dataclass 
+@dataclass
 class InputMessage(Message):
     def __init__(self, data: Any, metadata: Optional[Dict] = None):
-        super().__init__(MessageType.INPUT, data, metadata)
+        super().__init__(MessageType.DATA, data, metadata)
 
 
 @dataclass
 class OutputMessage(Message):
     def __init__(self, result: Any, metadata: Optional[Dict] = None):
-        super().__init__(MessageType.OUTPUT, result, metadata)
+        super().__init__(MessageType.DATA, result, metadata)
 
 
 @dataclass

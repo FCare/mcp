@@ -118,7 +118,7 @@ class ChatterboxTTSStep(PipelineStep):
     
     def process_message(self, message) -> Optional[OutputMessage]:
         try:
-            if message.type == MessageType.INPUT:
+            if message.type == MessageType.DATA:
                 text = str(message.data)
                 self._synthesize_text(text)
                 return None

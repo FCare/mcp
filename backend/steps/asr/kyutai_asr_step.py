@@ -554,7 +554,7 @@ class KyutaiASRStep(PipelineStep):
     def _handle_input_message(self, message: Message):
         try:
             logger.info(f"🎤 ASR: _handle_input_message called with type={message.type}")
-            if message.type != MessageType.INPUT:
+            if message.type != MessageType.DATA:
                 logger.warning(f"🎤 ASR: Type de message non supporté: {message.type}")
                 return
             

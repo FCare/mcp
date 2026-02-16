@@ -13,7 +13,7 @@ class AudioChunkMessage(Message):
             "sample_rate": sample_rate,
             "format": format
         }
-        super().__init__(MessageType.INPUT, data, metadata)
+        super().__init__(MessageType.DATA, data, metadata)
 
 
 @dataclass
@@ -25,7 +25,7 @@ class TranscriptionMessage(Message):
             "confidence": confidence,
             "is_final": is_final
         }
-        super().__init__(MessageType.OUTPUT, data, metadata)
+        super().__init__(MessageType.DATA, data, metadata)
 
 
 @dataclass
@@ -35,4 +35,4 @@ class SpeechEventMessage(Message):
             "event_type": event_type,
             "timestamp": timestamp
         }
-        super().__init__(MessageType.OUTPUT, data, metadata)
+        super().__init__(MessageType.DATA, data, metadata)
