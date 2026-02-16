@@ -106,8 +106,7 @@ class WebSocketStep(PipelineStep):
             
             if hasattr(message_data, 'data'):
                 data = message_data.data
-            elif hasattr(message_data, 'result'):
-                data = message_data.result  # TTS step utilise 'result' pour les chunks audio
+            # Avec MessageType.DATA unifié, tous les messages utilisent .data
                 
             if data is None:
                 logger.warning(f"Message without data or result: {message_data}")

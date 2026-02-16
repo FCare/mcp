@@ -142,7 +142,7 @@ class KyutaiTTS:
     def _enqueue_audio_chunk(self, audio_bytes: bytes):
         if self.output_queue:
             message = OutputMessage(
-                result=audio_bytes,
+                data=audio_bytes,
                 metadata={
                     "original_client_id": self.current_client_id,
                     "type": "audio_chunk",

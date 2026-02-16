@@ -336,7 +336,7 @@ class OpenAIChatStep(PipelineStep):
                     # Envoie directement vers l'output_queue
                     if self.output_queue:
                         output_message = OutputMessage(
-                            result=content,
+                            data=content,
                             metadata={
                                 "original_client_id": self.current_client_id,
                                 "chunk_type": "partial",
@@ -357,7 +357,7 @@ class OpenAIChatStep(PipelineStep):
                     # Envoie un marqueur de fin (optionnel)
                     if self.output_queue:
                         finish_message = OutputMessage(
-                            result="",
+                            data="",
                             metadata={
                                 "original_client_id": self.current_client_id,
                                 "chunk_type": "finish",
@@ -400,7 +400,7 @@ class OpenAIChatStep(PipelineStep):
             if response_event.type == LLMEventType.PARTIAL_RESPONSE:
                 logger.info(f"Handling partial response: '{response_event.data}'")
                 response_message = OutputMessage(
-                    result=response_event.data,
+                    data=response_event.data,
                     metadata={
                         "original_client_id": self.current_client_id,
                         "response_type": "partial",
@@ -413,7 +413,7 @@ class OpenAIChatStep(PipelineStep):
             elif response_event.type == LLMEventType.FINISH_RESPONSE:
                 logger.info(f"Handling finish response event")
                 finish_message = OutputMessage(
-                    result="",
+                    data="",
                     metadata={
                         "original_client_id": self.current_client_id,
                         "response_type": "finish",
@@ -437,7 +437,7 @@ class OpenAIChatStep(PipelineStep):
     def _send_error_response(self, error_msg: str):
         """Envoie une réponse d'erreur"""
         error_message = OutputMessage(
-            result=f"Erreur: {error_msg}",
+            data=f"Erreur: {error_msg}",
             metadata={
                 "original_client_id": self.current_client_id,
                 "response_type": "error",

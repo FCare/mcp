@@ -99,8 +99,7 @@ class SentenceNormalizerStep(PipelineStep):
             text_chunk = None
             if hasattr(message, 'data') and message.data:
                 text_chunk = message.data
-            elif hasattr(message, 'result') and message.result:
-                text_chunk = message.result
+            # Avec MessageType.DATA unifié, tous les messages utilisent .data
             
             if not text_chunk:
                 return
@@ -135,8 +134,7 @@ class SentenceNormalizerStep(PipelineStep):
             original_source_data = ""
             if hasattr(source_message, 'data') and source_message.data:
                 original_source_data = source_message.data
-            elif hasattr(source_message, 'result') and source_message.result:
-                original_source_data = source_message.result
+            # Avec MessageType.DATA unifié, tous les messages utilisent .data
             
             # Créer message de sortie avec le texte normalisé
             # Préserver l'original_client_id pour le routage WebSocket

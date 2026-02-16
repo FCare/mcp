@@ -77,7 +77,7 @@ class DuplicatorStep(PipelineStep):
                     elif isinstance(input_message, OutputMessage):
                         # OutputMessage → reste OutputMessage
                         duplicated_message = OutputMessage(
-                            result=input_message.result if hasattr(input_message, 'result') else input_message.data,
+                            data=input_message.data,
                             metadata=original_metadata.copy()
                         )
                     else:

@@ -24,8 +24,8 @@ class InputMessage(Message):
 
 @dataclass
 class OutputMessage(Message):
-    def __init__(self, result: Any, metadata: Optional[Dict] = None):
-        super().__init__(MessageType.DATA, result, metadata)
+    def __init__(self, data: Any, metadata: Optional[Dict] = None):
+        super().__init__(MessageType.DATA, data, metadata)
 
 
 @dataclass

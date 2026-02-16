@@ -49,7 +49,7 @@ class SystemPromptStep(PipelineStep):
             
             # Créer le message de mise à jour
             prompt_message = OutputMessage(
-                result=system_prompt,
+                data=system_prompt,
                 metadata={
                     "type": "system_prompt_update",
                     "source": self.name

@@ -75,11 +75,9 @@ class ChatterboxTTSStep(PipelineStep):
                 print(f"🔄 TTS ignore chunk partial direct du chat, attend sentence normalizer")
                 return
             
-            # Extraire le texte depuis le message du sentence normalizer
+            # Avec MessageType.DATA unifié, tous les messages utilisent .data
             if hasattr(input_message, 'data'):
                 text_data = str(input_message.data)
-            elif hasattr(input_message, 'result'):
-                text_data = str(input_message.result)
             else:
                 text_data = str(input_message)
             
@@ -100,7 +98,7 @@ class ChatterboxTTSStep(PipelineStep):
         try:
             # Envoyer directement le signal finish au websocket
             finish_message = OutputMessage(
-                result="",  # Signal finish sans contenu
+                data="",  # Signal finish sans contenu
                 metadata={
                     "type": "chat_finished",
                     "original_client_id": finish_metadata.get('original_client_id'),
@@ -237,7 +235,7 @@ class ChatterboxTTSStep(PipelineStep):
         
         # Créer et envoyer le message audio
         audio_message = OutputMessage(
-            result=chunk,
+            data=chunk,
             metadata=audio_metadata
         )
         
@@ -271,7 +269,7 @@ class ChatterboxTTSStep(PipelineStep):
         
         # Créer et envoyer le message de fin
         finish_message = OutputMessage(
-            result="",  # Pas de données, juste un signal de fin
+            data="",  # Pas de données, juste un signal de fin
             metadata=finish_metadata
         )
         

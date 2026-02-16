@@ -317,7 +317,7 @@ class MoshiASR:
                 
                 # Message transcript_chunk pour streaming
                 message = OutputMessage(
-                    result=event.text,  # Utilise 'result' pas 'data'
+                    data=event.text,  # Utilise 'data' avec MessageType.DATA unifié
                     metadata={
                         "client_id": self.current_client_id,
                         "transcription_type": "partial",
@@ -333,7 +333,7 @@ class MoshiASR:
                 full_text = ' '.join(self.text_buffer).strip()
                 logger.debug(f"{self.name}: Creating transcript_done from buffer: '{full_text}'")
                 message = OutputMessage(
-                    result=full_text,  # Utilise 'result' pas 'data'
+                    data=full_text,  # Utilise 'data' avec MessageType.DATA unifié
                     metadata={
                         "client_id": self.current_client_id,
                         "transcription_type": "complete",
