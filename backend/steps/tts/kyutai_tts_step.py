@@ -170,9 +170,13 @@ class KyutaiTTS:
                 
                 elif message_type == 'Audio':
                     pcm_data = message_dict.get('pcm', [])
+                    logger.info(f"{self.name}: Processing Audio message with {len(pcm_data)} PCM samples")
                     if pcm_data and self.output_queue:
                         audio_bytes = struct.pack(f'{len(pcm_data)}f', *pcm_data)
+                        logger.info(f"{self.name}: Converted PCM to {len(audio_bytes)} bytes")
                         self._enqueue_audio_chunk(audio_bytes)
+                    else:
+                        logger.warning(f"{self.name}: No PCM data or no output queue available")
                         
                 elif message_type == 'Error':
                     error_msg = message_dict.get('message', 'Unknown TTS error')
