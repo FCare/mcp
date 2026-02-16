@@ -135,7 +135,7 @@ class OpenAIChatStep(PipelineStep):
                 logger.error("OpenAI API key non trouvée")
                 return False
             
-            # Utilise directement self.config (déjà fusionné : default_config + config_overrides)
+            # Utilise directement self.config (déjà fusionné : config + config_overrides)
             provider = self.config.get("provider")  # Pas de défaut ici, défini dans le JSON
             endpoint = self.config.get("endpoint")
             

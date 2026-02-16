@@ -48,7 +48,7 @@
       "type": "integer",
       "default": 24000,
       "description": "Taux d'échantillonnage attendu",
-      "values": [16000, 24000, 48000]
+      "values": [24000]
     },
     "samples_per_frame": {
       "type": "integer",

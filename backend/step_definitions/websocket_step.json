@@ -33,7 +33,7 @@
     },
     "port": {
       "type": "integer",
-      "default": 8765,
+      "default": 8769,
       "description": "Port d'écoute du serveur WebSocket"
     },
     "audio_format": {
@@ -54,13 +54,6 @@
       "description": "Mode de fonctionnement: audio_to_text ou text_to_audio",
       "values": ["audio_to_text", "text_to_audio"]
     }
-  },
-  "default_config": {
-    "host": "0.0.0.0",
-    "port": 8769,
-    "mode": "audio_to_text",
-    "audio_format": "pcm16",
-    "sample_rate": 24000
   },
   "requirements": {
     "cpu": "medium",

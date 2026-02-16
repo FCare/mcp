@@ -157,23 +157,22 @@ class PipelineLoader:
         step_module_path = step_definition.get("module_path")
         
         # Config par défaut de la step_definition
-        default_config = {}
-        if "default_config" in step_definition:
-            default_config = step_definition["default_config"].copy()
-        elif "configuration" in step_definition:
+        config = {}
+
+        if "configuration" in step_definition:
             # Extraire les valeurs par défaut du schéma de configuration
             config_schema = step_definition["configuration"]
             for param_name, param_def in config_schema.items():
                 if "default" in param_def:
-                    default_config[param_name] = param_def["default"]
+                    config[param_name] = param_def["default"]
         
-        # Combiner default_config avec config_overrides de l'instance
+        # Combiner config avec config_overrides de l'instance
         instance_overrides = step_instance.get("config_overrides", {})
         # Fallback vers "config" pour compatibilité avec ancienne structure
         if not instance_overrides:
             instance_overrides = step_instance.get("config", {})
         
-        merged_config = {**default_config, **instance_overrides}
+        merged_config = {**config, **instance_overrides}
         
         # Si c'est un WebSocketStep, ajouter les capacités du pipeline
         if step_definition_ref == "websocket_server" and pipeline_def:

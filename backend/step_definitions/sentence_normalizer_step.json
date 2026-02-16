@@ -7,9 +7,6 @@
   "author": "Pipeline Framework",
   "class_name": "SentenceNormalizerStep",
   "module_path": "steps.text.sentence_normalizer_step",
-  "default_config": {
-    "language_id": "fr"
-  },
   "config_schema": {
     "type": "object",
     "properties": {
