@@ -140,26 +140,15 @@ class KyutaiTTS:
 
     def on_message(self, ws, message):
         try:
-            # Log détaillé du message reçu
-            if isinstance(message, bytes):
-                logger.info(f"{self.name}: Received bytes message, length={len(message)}")
-                # Afficher les premiers bytes en hexa pour diagnostic
-                hex_preview = message[:16].hex() if len(message) >= 16 else message.hex()
-                logger.info(f"{self.name}: Hex preview: {hex_preview}")
-                
-                # Vérifier si c'est des données OGG (audio direct)
-                if message.startswith(b'OggS'):
-                    logger.info(f"{self.name}: Detected OGG Vorbis audio data ({len(message)} bytes)")
-                    self._enqueue_audio_chunk(message)
-                    return
-            else:
-                logger.info(f"{self.name}: Received non-bytes message: {type(message)} - {message}")
+            # Vérifier si c'est des données OGG (audio direct)
+            if isinstance(message, bytes) and message.startswith(b'OggS'):
+                logger.debug(f"{self.name}: Received OGG Vorbis audio data ({len(message)} bytes)")
+                self._enqueue_audio_chunk(message)
+                return
                 
             # Essayer de décoder comme msgpack (messages de contrôle)
             try:
-                logger.debug(f"receive {message}")
                 message_dict = msgpack.unpackb(message)
-                logger.info(f"{self.name}: Successfully decoded msgpack: {message_dict}")
                 
                 message_type = message_dict.get('type', 'unknown')
 
@@ -170,7 +159,6 @@ class KyutaiTTS:
                 
                 elif message_type == 'Audio':
                     pcm_data = message_dict.get('pcm', [])
-                    logger.info(f"{self.name}: Processing Audio message with {len(pcm_data)} PCM samples")
                     if pcm_data and self.output_queue:
                         # Convertir float32 -> int16 (comme unmute backend fait)
                         # Clamping des valeurs entre -1.0 et 1.0, puis multiplier par 32767
@@ -184,7 +172,6 @@ class KyutaiTTS:
                         
                         # Packer en bytes (format 'h' = signed short int16)
                         audio_bytes = struct.pack(f'{len(pcm_int16)}h', *pcm_int16)
-                        logger.info(f"{self.name}: Converted {len(pcm_data)} float32 samples to {len(audio_bytes)} bytes (PCM int16)")
                         self._enqueue_audio_chunk(audio_bytes)
                     else:
                         logger.warning(f"{self.name}: No PCM data or no output queue available")
@@ -226,7 +213,7 @@ class KyutaiTTS:
             )
             self.output_queue.enqueue(message)
             self.audio_chunks_sent += 1
-            logger.info(f"{self.name}: Audio chunk sent ({len(audio_bytes)} bytes, format: {audio_format})")
+            logger.debug(f"{self.name}: Audio chunk sent ({len(audio_bytes)} bytes, format: {audio_format})")
 
     def on_error(self, ws, error):
         logger.error(f"{self.name}: WebSocket error: {error}")
