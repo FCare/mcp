@@ -30,6 +30,25 @@
         "default": 24000,
         "description": "Taux d'échantillonnage attendu",
         "enum": [24000]
+      },
+      "format": {
+        "type": "string",
+        "default": "pcm",
+        "description": "Format audio de sortie",
+        "enum": ["pcm", "PcmMessagePack", "ogg_vorbis"]
+      },
+      "voice": {
+        "type": "string",
+        "default": "male_1",
+        "description": "Voix à utiliser pour la synthèse",
+        "enum": ["male_1", "female_1"]
+      },
+      "cfg_alpha": {
+        "type": "number",
+        "default": 1.5,
+        "description": "Paramètre de configuration CFG",
+        "minimum": 0.1,
+        "maximum": 3.0
       }
     },
     "additionalProperties": false

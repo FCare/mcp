@@ -49,10 +49,13 @@ class TTSEvent:
 
 
 class KyutaiTTS:
-    def __init__(self, host: str, port: int = 443, api_key: str = None, **params):
+    def __init__(self, host: str, port: int = 443, api_key: str = None, format: str = "pcm", voice: str = "male_1", cfg_alpha: float = 1.5, **params):
         self.host = host
         self.port = port
         self.api_key = api_key
+        self.format = format
+        self.voice = voice
+        self.cfg_alpha = cfg_alpha
         self.name = f"KyutaiTTS({self.host})"
 
         self.ws = None
@@ -109,7 +112,18 @@ class KyutaiTTS:
     def _build_websocket_url(self):
         protocol = "wss" if self.port == 443 else "ws"
         base_path = "/api/tts_streaming"
-        return f"{protocol}://{self.host}:{self.port}{base_path}"
+        
+        # Utiliser les paramètres de configuration
+        params = {
+            "format": self.format,
+            "voice": self.voice,
+            "cfg_alpha": str(self.cfg_alpha)
+        }
+        
+        query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+        url = f"{protocol}://{self.host}:{self.port}{base_path}?{query_string}"
+        logger.info(f"{self.name}: Using URL with format={self.format}: {url}")
+        return url
 
     def on_open(self, ws):
         self._connected = True
@@ -117,38 +131,61 @@ class KyutaiTTS:
 
     def on_message(self, ws, message):
         try:
-            logger.info(f"receive {message}")
-            message_dict = msgpack.unpackb(message)
-            logger.info(f"decoded {message_dict}")
-            
-            message_type = message_dict.get('type', 'unknown')
-
-            if message_type == 'Ready':
-                self._stream_active = True
-                logger.info(f"{self.name}: TTS ready")
+            # Vérifier si c'est des données OGG (audio direct)
+            if isinstance(message, bytes) and message.startswith(b'OggS'):
+                logger.debug(f"{self.name}: Received OGG audio data ({len(message)} bytes)")
+                self._enqueue_audio_chunk(message)
                 return
-            
-            elif message_type == 'Audio':
-                pcm_data = message_dict.get('pcm', [])
-                if pcm_data and self.output_queue:
-                    audio_bytes = struct.pack(f'{len(pcm_data)}f', *pcm_data)
-                    self._enqueue_audio_chunk(audio_bytes)
+                
+            # Essayer de décoder comme msgpack (messages de contrôle)
+            try:
+                logger.debug(f"receive {message}")
+                message_dict = msgpack.unpackb(message)
+                logger.debug(f"decoded {message_dict}")
+                
+                message_type = message_dict.get('type', 'unknown')
+
+                if message_type == 'Ready':
+                    self._stream_active = True
+                    logger.info(f"{self.name}: TTS ready")
+                    return
+                
+                elif message_type == 'Audio':
+                    pcm_data = message_dict.get('pcm', [])
+                    if pcm_data and self.output_queue:
+                        audio_bytes = struct.pack(f'{len(pcm_data)}f', *pcm_data)
+                        self._enqueue_audio_chunk(audio_bytes)
+                        
+                elif message_type == 'Error':
+                    error_msg = message_dict.get('message', 'Unknown TTS error')
+                    logger.error(f"{self.name}: TTS Error: {error_msg}")
                     
-            elif message_type == 'Error':
-                error_msg = message_dict.get('message', 'Unknown TTS error')
-                logger.error(f"{self.name}: TTS Error: {error_msg}")
+            except msgpack.exceptions.ExtraData:
+                # Si c'est des données binaires non-msgpack, les traiter comme audio
+                logger.debug(f"{self.name}: Raw binary data ({len(message)} bytes)")
+                self._enqueue_audio_chunk(message)
+            except Exception as decode_error:
+                # Si ce n'est pas du msgpack valide, traiter comme audio brut
+                logger.debug(f"{self.name}: Could not decode as msgpack, treating as raw audio: {decode_error}")
+                if isinstance(message, bytes):
+                    self._enqueue_audio_chunk(message)
+                else:
+                    logger.warning(f"{self.name}: Unknown message type: {type(message)}")
                 
         except Exception as e:
             logger.error(f"{self.name}: Error processing TTS message: {e}")
 
     def _enqueue_audio_chunk(self, audio_bytes: bytes):
         if self.output_queue:
+            # Détecter le format audio
+            audio_format = "ogg_vorbis" if audio_bytes.startswith(b'OggS') else "pcm_float32"
+            
             message = OutputMessage(
                 data=audio_bytes,
                 metadata={
                     "original_client_id": self.current_client_id,
                     "type": "audio_chunk",
-                    "format": "pcm_float32",
+                    "format": audio_format,
                     "sample_rate": SAMPLE_RATE,
                     "chunk_index": self.audio_chunks_sent,
                     "timestamp": time.time()
@@ -156,7 +193,7 @@ class KyutaiTTS:
             )
             self.output_queue.enqueue(message)
             self.audio_chunks_sent += 1
-            logger.info(f"{self.name}: Audio chunk sent ({len(audio_bytes)} bytes)")
+            logger.info(f"{self.name}: Audio chunk sent ({len(audio_bytes)} bytes, format: {audio_format})")
 
     def on_error(self, ws, error):
         logger.error(f"{self.name}: WebSocket error: {error}")
@@ -271,6 +308,9 @@ class KyutaiTTSStep(PipelineStep):
             self.api_key = "public_token"
             
         self.sample_rate = config.get("sample_rate", 24000) if config else 24000
+        self.format = config.get("format", "pcm") if config else "pcm"
+        self.voice = config.get("voice", "male_1") if config else "male_1"
+        self.cfg_alpha = config.get("cfg_alpha", 1.5) if config else 1.5
         
         self.kyutai_tts = None
         self.current_client_id = None
@@ -282,7 +322,14 @@ class KyutaiTTSStep(PipelineStep):
         try:
             print(f"Initializing Kyutai TTS on {self.host}:{self.port}")
             
-            self.kyutai_tts = KyutaiTTS(host=self.host, port=self.port, api_key=self.api_key)
+            self.kyutai_tts = KyutaiTTS(
+                host=self.host,
+                port=self.port,
+                api_key=self.api_key,
+                format=self.format,
+                voice=self.voice,
+                cfg_alpha=self.cfg_alpha
+            )
             self.kyutai_tts.set_output_queue(self.output_queue)
             self.kyutai_tts.connect()
             
