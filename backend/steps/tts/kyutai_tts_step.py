@@ -153,14 +153,17 @@ class KyutaiTTS:
             elif message_type == 'Audio':
                 pcm_data = message_dict.get('pcm', [])
                 if pcm_data and self.output_queue:
-                    # Convertir float32 -> int16 (comme unmute backend fait)
-                    # Clamping des valeurs entre -1.0 et 1.0, puis multiplier par 32767
+                    # Convertir float32 -> int16 avec utilisation optimale de la plage
+                    # Clamping entre -1.0 et 1.0, puis conversion asymétrique pour utiliser toute la plage
                     pcm_int16 = []
                     for sample in pcm_data:
                         # Clamp entre -1.0 et 1.0
                         clamped = max(-1.0, min(1.0, sample))
-                        # Convertir en int16 (-32768 à 32767)
-                        int16_val = int(clamped * 32767)
+                        # Conversion asymétrique pour utiliser toute la plage int16 (-32768 à 32767)
+                        if clamped >= 0:
+                            int16_val = min(32767, int(clamped * 32767))
+                        else:
+                            int16_val = max(-32768, int(clamped * 32768))
                         pcm_int16.append(int16_val)
                     
                     # Packer en bytes (format 'h' = signed short int16)
