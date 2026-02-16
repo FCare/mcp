@@ -49,7 +49,7 @@ class TTSEvent:
 
 
 class KyutaiTTS:
-    def __init__(self, host: str, port: int = 443, api_key: str = None, format: str = "pcm", voice: str = "male_1", cfg_alpha: float = 1.5, **params):
+    def __init__(self, host: str, port: int = 443, api_key: str = None, format: str = "PcmMessagePack", voice: str = "male_1", cfg_alpha: float = 1.5, **params):
         self.host = host
         self.port = port
         self.api_key = api_key
@@ -113,15 +113,23 @@ class KyutaiTTS:
         protocol = "wss" if self.port == 443 else "ws"
         base_path = "/api/tts_streaming"
         
-        # Utiliser les paramètres de configuration
-        params = {
-            "format": self.format,
-            "voice": self.voice,
-            "cfg_alpha": str(self.cfg_alpha)
-        }
+        # Build parameters like unmute - filter None values first
+        params = {}
+        if self.format is not None:
+            params["format"] = self.format
+        if self.voice is not None:
+            params["voice"] = self.voice
+        if self.cfg_alpha is not None:
+            params["cfg_alpha"] = self.cfg_alpha
         
-        query_string = "&".join([f"{k}={v}" for k, v in params.items()])
-        url = f"{protocol}://{self.host}:{self.port}{base_path}?{query_string}"
+        # Build query string with URL escaping
+        if params:
+            query_parts = [f"{key}={quote_plus(str(value))}" for key, value in params.items()]
+            query_string = "&".join(query_parts)
+            url = f"{protocol}://{self.host}:{self.port}{base_path}?{query_string}"
+        else:
+            url = f"{protocol}://{self.host}:{self.port}{base_path}"
+            
         logger.info(f"{self.name}: Using URL with format={self.format}: {url}")
         return url
 
