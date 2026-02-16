@@ -117,7 +117,9 @@ class KyutaiTTS:
 
     def on_message(self, ws, message):
         try:
+            logger.info(f"receive {message}")
             message_dict = msgpack.unpackb(message)
+            logger.info(f"decoded {message_dict}")
             
             message_type = message_dict.get('type', 'unknown')
 
