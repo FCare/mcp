@@ -47,6 +47,11 @@
                 "max_tokens": 1500,
                 "system_prompt": "Tu es un assistant virtuel intelligent utilisant Qwen3 VL 8B. Tu réponds de manière claire, concise et engageante en français."
             }
+        },
+        {
+            "instance_id": "tool_registry_duplicator",
+            "step_definition": "Duplicator Step",
+            "config_overrides": {}
         }
     ],
     "connections": [
@@ -56,15 +61,15 @@
         },
         {
             "from": "tool_registry",
-            "to": "weather_tool"
+            "to": "tool_registry_duplicator"
+        },
+        {
+            "from": "tool_registry_duplicator",
+            "to": ["weather_tool", "openai_chat"]
         },
         {
             "from": "weather_tool",
             "to": "tool_registry"
-        },
-        {
-            "from": "tool_registry",
-            "to": "openai_chat"
         },
         {
             "from": "websocket_server",
