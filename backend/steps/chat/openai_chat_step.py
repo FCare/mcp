@@ -188,8 +188,17 @@ class OpenAIChatStep(PipelineStep):
                 if (hasattr(input_message, 'metadata') and
                     input_message.metadata and
                     input_message.metadata.get('message_type') == 'tools_ready'):
-                    self._handle_tools_ready(input_message)
-                    return
+                    try:
+                        logger.info(f"🔧 AVANT _handle_tools_ready call")
+                        self._handle_tools_ready(input_message)
+                        logger.info(f"🔧 APRES _handle_tools_ready call - SUCCESS")
+                        return
+                    except Exception as e:
+                        logger.error(f"🔧 EXCEPTION dans _handle_tools_ready: {e}")
+                        logger.error(f"🔧 Exception type: {type(e).__name__}")
+                        import traceback
+                        logger.error(f"🔧 Stack trace: {traceback.format_exc()}")
+                        return  # Continue même en cas d'erreur pour éviter de tuer le worker
                 
                 # Gestion des réponses d'outils - nouveau
                 if isinstance(input_message, ToolResponseMessage):
@@ -548,17 +557,21 @@ class OpenAIChatStep(PipelineStep):
     def _handle_tools_ready(self, tools_ready_message):
         """Traite la réception de tous les outils disponibles"""
         try:
+            logger.info(f"🔧 DEBUT _handle_tools_ready")
             data = tools_ready_message.data
             client_id = data.get('client_id')
             username = data.get('username')
             registered_tools = data.get('registered_tools', [])
             timed_out = data.get('timed_out', False)
             
-            # Enregistrer les outils pour ce client
-            with self._lock:
-                self.client_tools[client_id] = registered_tools
-                # Générer le prompt enrichi avec les descriptions d'outils
-                self.client_prompts[client_id] = self._generate_enhanced_prompt(registered_tools)
+            logger.info(f"🔧 Processing tools for client {client_id}: {len(registered_tools)} outils")
+            
+            # Enregistrer les outils pour ce client - LOCK DEJA PRIS par _handle_input_event
+            self.client_tools[client_id] = registered_tools
+            # Générer le prompt enrichi avec les descriptions d'outils
+            logger.info(f"🔧 Generating enhanced prompt...")
+            self.client_prompts[client_id] = self._generate_enhanced_prompt(registered_tools)
+            logger.info(f"🔧 Enhanced prompt generated successfully")
             
             status = "avec timeout" if timed_out else "complet"
             logger.info(f"🛠️ Tools registration {status} pour {username}: {len(registered_tools)} outils")
@@ -572,8 +585,12 @@ class OpenAIChatStep(PipelineStep):
             if registered_tools:
                 logger.info(f"📝 Prompt enrichi généré pour {username}")
             
+            logger.info(f"🔧 FIN _handle_tools_ready - SUCCESS")
+            
         except Exception as e:
-            logger.error(f"Erreur traitement tools_ready: {e}")
+            logger.error(f"🔧 ERREUR _handle_tools_ready: {e}")
+            logger.error(f"🔧 FIN _handle_tools_ready - ERROR")
+            raise
     
     def _generate_enhanced_prompt(self, tools_definitions):
         """Génère un prompt enrichi avec les descriptions des outils disponibles"""
