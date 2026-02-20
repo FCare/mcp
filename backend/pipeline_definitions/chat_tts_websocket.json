@@ -121,6 +121,10 @@
       "to": "tool_registry"
     },
     {
+      "from": "weather_tool",
+      "to": "openai_chat"
+    },
+    {
       "from": "asr_step",
       "to": "asr_duplicator"
     },

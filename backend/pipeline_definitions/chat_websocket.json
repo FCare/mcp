@@ -72,6 +72,10 @@
             "to": "tool_registry"
         },
         {
+            "from": "weather_tool",
+            "to": "openai_chat"
+        },
+        {
             "from": "websocket_server",
             "to": "openai_chat"
         },
