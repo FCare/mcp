@@ -37,7 +37,9 @@ class ChunkQueue(queue.PriorityQueue):
                         looper.run_until_complete(f(chunk))
                 except Exception as e:
                     # Log error but continue processing
-                    pass
+                    print(f"🐛 CRITICAL: ChunkQueue handler exception: {e}")
+                    import traceback
+                    print(f"🐛 CRITICAL: Traceback: {traceback.format_exc()}")
                 finally:
                     self.task_done() #Trigger that it is done
             except queue.Empty:
