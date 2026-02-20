@@ -171,6 +171,11 @@ class OpenAIChatStep(PipelineStep):
     
     def _handle_input_event(self, input_message):
         try:
+            # DEBUG: Logger au tout début pour identifier le problème
+            logger.info(f"🐛 DEBUG: openai_chat._handle_input_event called with message type: {type(input_message)}")
+            logger.info(f"🐛 DEBUG: message data: {getattr(input_message, 'data', 'NO_DATA')}")
+            logger.info(f"🐛 DEBUG: message metadata: {getattr(input_message, 'metadata', 'NO_METADATA')}")
+            
             with self._lock:
                 # Vérifier si c'est une mise à jour de system prompt
                 if (hasattr(input_message, 'metadata') and
