@@ -6,14 +6,22 @@ import time
 
 class ChunkQueue(queue.PriorityQueue):
     def wrapper_targetFuncSync(self, f):
+        print(f"🐛 ChunkQueue: Worker thread started for handler {f}")
         while not self.is_running.is_set():
             try:
                 item = self.get(timeout=1)  #Wait for a chunk
                 priority, timestamp, counter, chunk = item
+                print(f"🐛 ChunkQueue: Worker got message: {type(chunk).__name__}")
                 f(chunk)
+                print(f"🐛 ChunkQueue: Handler completed for: {type(chunk).__name__}")
                 self.task_done() #Trigger that it is done
             except queue.Empty:
                 continue
+            except Exception as e:
+                print(f"🐛 ChunkQueue: Worker exception: {e}")
+                import traceback
+                print(f"🐛 ChunkQueue: Traceback: {traceback.format_exc()}")
+                self.task_done()
 
     def wrapper_targetFuncAsync(self, f, looper):
         async def wait_for_f(chunk):
