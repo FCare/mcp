@@ -553,36 +553,37 @@ class KyutaiASRStep(PipelineStep):
     
     def _handle_input_message(self, message: Message):
         try:
-            logger.info(f"🎤 ASR: _handle_input_message called with type={message.type}")
+            logger.debug(f"🎤 ASR: _handle_input_message called with type={message.type}")
             if message.type != MessageType.DATA:
-                logger.warning(f"🎤 ASR: Type de message non supporté: {message.type}")
+                logger.debug(f"🎤 ASR: Type de message non supporté, ignoré: {message.type}")
                 return
             
             # Récupère les données audio
             audio_data = message.data
             if not audio_data:
-                logger.error("🎤 ASR: Pas de données audio dans le message")
+                logger.debug("🎤 ASR: Pas de données dans le message, ignoré")
+                return
+            
+            # Vérifie que c'est bien des données audio (bytes) - ignore le reste silencieusement
+            if not isinstance(audio_data, bytes):
+                logger.debug(f"🎤 ASR: Données non-audio reçues ({type(audio_data)}), ignorées (probablement du texte pour tools/LLM)")
                 return
             
             # Récupère l'ID du client pour le routage de retour
             if message.metadata:
                 self.current_client_id = message.metadata.get("client_id")
-                logger.info(f"🎤 ASR: Client ID: {self.current_client_id}")
+                logger.debug(f"🎤 ASR: Client ID: {self.current_client_id}")
             
             # Vérifie que MoshiASR est initialisé
             if not self.moshi_asr:
                 logger.error("🎤 ASR: MoshiASR non initialisé")
                 return
             
-            logger.info(f"🎤 ASR: MoshiASR connecté: {self.moshi_asr._connected}, actif: {self.moshi_asr._stream_active}")
+            logger.debug(f"🎤 ASR: MoshiASR connecté: {self.moshi_asr._connected}, actif: {self.moshi_asr._stream_active}")
             
             # Traite le chunk audio avec MoshiASR
-            if isinstance(audio_data, bytes):
-                # Audio binaire brut - utilise la méthode interne de MoshiASR
-                self.moshi_asr._process_audio_chunk(audio_data, self.current_client_id)
-                logger.info(f"🎤 ASR: Chunk audio traité ({len(audio_data)} bytes) pour client {self.current_client_id}")
-            else:
-                logger.error(f"🎤 ASR: Format audio non supporté (attendu: bytes), reçu: {type(audio_data)}")
+            self.moshi_asr._process_audio_chunk(audio_data, self.current_client_id)
+            logger.info(f"🎤 ASR: Chunk audio traité ({len(audio_data)} bytes) pour client {self.current_client_id}")
             
         except Exception as e:
             logger.error(f"🎤 ASR: Erreur traitement audio ASR: {e}")
